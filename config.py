@@ -22,14 +22,27 @@ class Config(BaseSettings):
     @field_validator("channel_ids", mode="before")
     @classmethod
     def parse_channel_ids(cls, v):
+        if not v:
+            return []
         if isinstance(v, list):
             return [str(x) for x in v]
         if isinstance(v, str):
+            v = v.strip()
+            # Try comma-separated first (fastest for .env usage)
+            if "," in v and not (v.startswith("[") and v.endswith("]")):
+                return [s.strip() for s in v.split(",") if s.strip()]
+            # Try JSON
             try:
-                return [str(x) for x in json.loads(v)]
+                data = json.loads(v)
+                if isinstance(data, list):
+                    return [str(x) for x in data]
             except Exception:
-                try:
-                    return [str(x) for x in ast.literal_eval(v)]
-                except Exception:
-                    return []
+                pass
+            # Try Python literal
+            try:
+                data = ast.literal_eval(v)
+                if isinstance(data, list):
+                    return [str(x) for x in data]
+            except Exception:
+                pass
         return []
