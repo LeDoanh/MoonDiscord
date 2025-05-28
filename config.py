@@ -19,17 +19,22 @@ class Config(BaseSettings):
         case_sensitive = False
 
     def __init__(self, **values):
+        # Remove channel_ids from values to avoid pydantic parsing error
+        channel_ids_raw = values.pop("channel_ids", None)
         super().__init__(**values)
         # Parse channel_ids from string if needed (handle JSON/decode errors gracefully)
-        if isinstance(self.channel_ids, str):
-            try:
-                import json
-
-                self.channel_ids = [str(x) for x in json.loads(self.channel_ids)]
-            except Exception:
+        if channel_ids_raw is not None:
+            if isinstance(channel_ids_raw, str):
                 try:
-                    self.channel_ids = [
-                        str(x) for x in ast.literal_eval(self.channel_ids)
-                    ]
+                    import json
+
+                    self.channel_ids = [str(x) for x in json.loads(channel_ids_raw)]
                 except Exception:
-                    self.channel_ids = []
+                    try:
+                        self.channel_ids = [
+                            str(x) for x in ast.literal_eval(channel_ids_raw)
+                        ]
+                    except Exception:
+                        self.channel_ids = []
+            elif isinstance(channel_ids_raw, list):
+                self.channel_ids = [str(x) for x in channel_ids_raw]
