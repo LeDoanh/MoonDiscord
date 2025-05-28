@@ -1,7 +1,11 @@
+import os
 import re
+import threading
+import time
 
 import discord
 from discord.ext import commands
+from flask import Flask
 from openai import AsyncOpenAI
 
 from config import Config
@@ -128,3 +132,23 @@ async def on_message(message):
 
 if __name__ == "__main__":
     bot.run(DISCORD_TOKEN)
+
+    # Run app to end build process in render.com
+    # This is a workaround for Render.com to keep the build process alive
+    def run_flask():
+        app = Flask(__name__)
+
+        @app.route("/")
+        def hello():
+            return "Hello World!"
+
+        port = int(os.environ.get("PORT", 4000))
+        app.run(host="0.0.0.0", port=port)
+
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+
+    # Sleep for 1 minute to keep the process running
+    while True:
+        time.sleep(60)
