@@ -1,6 +1,7 @@
 import ast
+import json
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -18,23 +19,17 @@ class Config(BaseSettings):
         env_file_encoding = "utf-8"
         case_sensitive = False
 
-    def __init__(self, **values):
-        # Remove channel_ids from values to avoid pydantic parsing error
-        channel_ids_raw = values.pop("channel_ids", None)
-        super().__init__(**values)
-        # Parse channel_ids from string if needed (handle JSON/decode errors gracefully)
-        if channel_ids_raw is not None:
-            if isinstance(channel_ids_raw, str):
+    @field_validator("channel_ids", mode="before")
+    @classmethod
+    def parse_channel_ids(cls, v):
+        if isinstance(v, list):
+            return [str(x) for x in v]
+        if isinstance(v, str):
+            try:
+                return [str(x) for x in json.loads(v)]
+            except Exception:
                 try:
-                    import json
-
-                    self.channel_ids = [str(x) for x in json.loads(channel_ids_raw)]
+                    return [str(x) for x in ast.literal_eval(v)]
                 except Exception:
-                    try:
-                        self.channel_ids = [
-                            str(x) for x in ast.literal_eval(channel_ids_raw)
-                        ]
-                    except Exception:
-                        self.channel_ids = []
-            elif isinstance(channel_ids_raw, list):
-                self.channel_ids = [str(x) for x in channel_ids_raw]
+                    return []
+        return []
