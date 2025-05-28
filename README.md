@@ -25,7 +25,7 @@ MoonDiscord là một bot Discord sử dụng OpenAI GPT để trò chuyện và
 Ví dụ file `.env`:
 ```env
 DISCORD_TOKEN="<token bot discord>"
-DISCORD_CHANNEL_IDS=["channel_id_1","channel_id_2"]
+DISCORD_CHANNEL_IDS=[channel_id_1,channel_id_2]
 DISCORD_STATUS="Hello everyone []~(￣▽￣)~*!"
 OPENAI_BASE_URL="https://api.openai.com/v1"
 OPENAI_API_KEY="<openai_api_key>"
