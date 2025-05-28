@@ -20,9 +20,16 @@ class Config(BaseSettings):
 
     def __init__(self, **values):
         super().__init__(**values)
-        # Parse channel_ids from string if needed
+        # Parse channel_ids from string if needed (handle JSON/decode errors gracefully)
         if isinstance(self.channel_ids, str):
             try:
-                self.channel_ids = [str(x) for x in ast.literal_eval(self.channel_ids)]
+                import json
+
+                self.channel_ids = [str(x) for x in json.loads(self.channel_ids)]
             except Exception:
-                self.channel_ids = []
+                try:
+                    self.channel_ids = [
+                        str(x) for x in ast.literal_eval(self.channel_ids)
+                    ]
+                except Exception:
+                    self.channel_ids = []
