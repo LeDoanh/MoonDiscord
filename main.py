@@ -139,8 +139,11 @@ async def on_message(message):
 
 
 if __name__ == "__main__":
+    import datetime
+    import logging
     import os
     import threading
+    import time
 
     import uvicorn
     from fastapi import FastAPI
@@ -155,15 +158,14 @@ if __name__ == "__main__":
         port = int(os.environ.get("PORT", 10000))
         uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
 
+    def log_current_time():
+        while True:
+            current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            logging.basicConfig(level=logging.INFO)
+            logging.info(f"Current time: {current_time}")
+            time.sleep(600)
+
     threading.Thread(target=run_web, daemon=True).start()
+    threading.Thread(target=log_current_time, daemon=True).start()
+
     bot.run(DISCORD_TOKEN)
-
-    import datetime
-    import logging
-    import time
-
-    while True:
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        logging.basicConfig(level=logging.INFO)
-        logging.info(f"Current time: {current_time}")
-        time.sleep(600)
