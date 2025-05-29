@@ -159,9 +159,11 @@ if __name__ == "__main__":
     bot.run(DISCORD_TOKEN)
 
     import datetime
+    import logging
     import time
 
     while True:
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"Current time: {current_time}")
+        logging.basicConfig(level=logging.INFO)
+        logging.info(f"Current time: {current_time}")
         time.sleep(600)
