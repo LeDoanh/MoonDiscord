@@ -1,57 +1,89 @@
-import re
-
 import discord
+from discord import app_commands
 from discord.ext import commands
 from openai import AsyncOpenAI
 
 from config import Config
 
-# Load configuration from config.ini using pydantic
+# --- Load configuration ---
 config = Config()
 DISCORD_TOKEN = config.discord_token
 OPENAI_API_KEY = config.openai_api_key
-CHANNEL_IDS = config.channel_ids
 STATUS = config.status
 OPENAI_BASE_URL = config.openai_base_url
 OPENAI_MODEL = config.openai_model
 OPENAI_INSTRUCTIONS = config.openai_instructions
-CURRENT_CHAT_ID = None  # Lưu ID cuộc trò chuyện hiện tại với OpenAI
 
-# Khởi tạo OpenAI client bất đồng bộ
+# --- Initialize channel chat IDs dictionary ---
+CHANNEL_CHAT_IDS = {}  # key: channel_id (str), value: chat_id (str or None)
+
+# --- Initialize OpenAI client ---
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
 
-# Khởi tạo bot Discord với quyền đọc nội dung tin nhắn
+
+# --- Custom Bot with setup_hook for slash commands ---
+class MoonBot(commands.Bot):
+    async def setup_hook(self):
+        await self.add_cog(ChatCommand(self))
+        await self.tree.sync()
+        self.tree_synced = True
+
+
+# --- Initialize bot with intents ---
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix="!", intents=intents)
-
-# Danh sách từ khoá để reset chủ đề trò chuyện
-RESET_KEYWORDS = [
-    "chủ đề mới",
-    "reset",
-    "new topic",
-]
-# Tạo regex pattern để kiểm tra từ khoá reset, không phân biệt hoa/thường
-reset_pattern = re.compile(
-    r"(" + r"|".join(map(re.escape, RESET_KEYWORDS)) + r")", re.IGNORECASE
-)
+bot = MoonBot(command_prefix="!", intents=intents)
 
 
-async def ask_openai(prompt: str) -> str:
-    """Gửi prompt tới OpenAI và trả về kết quả trả lời."""
-    global CURRENT_CHAT_ID
-    # Danh sách từ khóa liên quan đến tóm tắt, tìm kiếm
-    SEARCH_KEYWORDS = [
-        "tóm tắt",
-        "tìm kiếm",
-        "tra cứu",
-        "hôm nay",
-    ]
-    # Kiểm tra nếu prompt chứa từ khóa liên quan
-    use_web_search = any(kw.lower() in prompt.lower() for kw in SEARCH_KEYWORDS)
-    # Cấu hình tool web search nếu cần
+# --- Slash command for chat ---
+class ChatCommand(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    @app_commands.command(name="chat", description="💬 Gửi câu hỏi tới Moon")
+    @app_commands.describe(
+        question="Câu hỏi hoặc nội dung muốn hỏi",
+        tool="Công cụ hỗ trợ: None, Web search",
+    )
+    @app_commands.choices(
+        tool=[
+            app_commands.Choice(name="None", value="none"),
+            app_commands.Choice(name="Web search", value="web_search"),
+        ]
+    )
+    async def chat(
+        self,
+        interaction: discord.Interaction,
+        question: str,
+        tool: app_commands.Choice[str] = None,
+    ):
+        channel_id = str(interaction.channel_id)
+        chat_id = CHANNEL_CHAT_IDS.get(channel_id)
+        await interaction.response.defer(thinking=True)
+        user_mention = interaction.user.mention
+        tool_value = tool.value if tool else "none"
+        answer, new_chat_id = await ask_openai(
+            question, tool=tool_value, chat_id=chat_id
+        )
+        CHANNEL_CHAT_IDS[channel_id] = new_chat_id
+        await interaction.followup.send(f"{user_mention} {answer}")
+
+    @app_commands.command(name="new_chat", description="🆕 Bắt đầu chủ đề mới với Moon")
+    async def new_chat(self, interaction: discord.Interaction):
+        channel_id = str(interaction.channel_id)
+        CHANNEL_CHAT_IDS[channel_id] = None
+        await interaction.response.send_message(
+            f"Moon bắt đầu chủ đề mới rồi nè, {interaction.user.mention} hỏi gì tiếp đi ạ! ✨",
+            ephemeral=True,
+        )
+
+
+# --- Function to send prompt to OpenAI and return the response ---
+async def ask_openai(
+    prompt: str, tool: str = "none", chat_id: str = None
+) -> tuple[str, str]:
     tools = []
-    if use_web_search:
+    if tool == "web_search":
         tools.append(
             {
                 "type": "web_search_preview",
@@ -66,65 +98,63 @@ async def ask_openai(prompt: str) -> str:
         response = await openai_client.responses.create(
             model=OPENAI_MODEL,
             instructions=OPENAI_INSTRUCTIONS,
-            previous_response_id=CURRENT_CHAT_ID,
+            previous_response_id=chat_id,
             input=prompt,
             tools=tools if tools else None,
         )
-        # Cập nhật ID cuộc trò chuyện nếu có
-        if hasattr(response, "id"):
-            CURRENT_CHAT_ID = response.id
-        return response.output_text.strip()
+        new_chat_id = getattr(response, "id", chat_id)
+        return response.output_text.strip(), new_chat_id
     except Exception as e:
-        return f"OpenAI error: {e}"
+        return f"OpenAI error: {e}", chat_id
 
 
+# --- Discord bot events ---
 @bot.event
 async def on_ready():
-    """Sự kiện khi bot sẵn sàng hoạt động."""
-    print(f"{bot.user} đã sẵn sàng!")
+    print(f"{bot.user} is online and ready to chat!")
     if STATUS:
-        await bot.change_presence(activity=discord.Game(name=STATUS))
+        await bot.change_presence(activity=discord.Game(STATUS))
 
 
 @bot.event
 async def on_message(message):
-    """Xử lý tin nhắn: chỉ trả lời khi được mention và ở kênh hợp lệ."""
-    global CURRENT_CHAT_ID
-    # Bỏ qua tin nhắn của chính bot
     if message.author == bot.user:
         return
-    # Chỉ phản hồi ở các kênh cho phép
-    if str(message.channel.id) not in CHANNEL_IDS:
-        return
-    # Chỉ trả lời khi bot được mention
     if bot.user in message.mentions:
-        # Hiển thị trạng thái đang nhập
+        channel_id = str(message.channel.id)
+        chat_id = CHANNEL_CHAT_IDS.get(channel_id)
         async with message.channel.typing():
-            # Lấy tên hoặc tag người gửi
             user_mention = f"<@{message.author.id}>"
-            # Loại bỏ mention khỏi nội dung để lấy prompt
             prompt = (
                 message.content.replace(f"<@{bot.user.id}>", "")
                 .replace(f"<@!{bot.user.id}>", "")
                 .strip()
             )
-            # Nếu phát hiện từ khoá reset, reset ID cuộc trò chuyện
-            if reset_pattern.search(prompt):
-                CURRENT_CHAT_ID = None
-                await message.reply(
-                    f"Moon bắt đầu chủ đề mới rồi nè, {user_mention} hỏi gì tiếp đi ạ! ✨"
-                )
-                return
-            # Nếu không có prompt sau mention, nhắc lại
             if not prompt:
                 await message.reply(f"{user_mention}, Moon có thể hỗ trợ gì ạ?")
                 return
-            # Gửi prompt tới OpenAI và trả lời lại, mention người hỏi
-            answer = await ask_openai(prompt)
+            answer, new_chat_id = await ask_openai(prompt, chat_id=chat_id)
+            CHANNEL_CHAT_IDS[channel_id] = new_chat_id
             await message.reply(f"{user_mention} {answer}")
-    # Cho phép xử lý các command khác nếu có
     await bot.process_commands(message)
 
 
 if __name__ == "__main__":
+    import os
+    import threading
+
+    import uvicorn
+    from fastapi import FastAPI
+
+    app = FastAPI()
+
+    @app.get("/")
+    async def root():
+        return {"status": "Moon Discord bot is running!"}
+
+    def run_web():
+        port = int(os.environ.get("PORT", 10000))
+        uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
+
+    threading.Thread(target=run_web, daemon=True).start()
     bot.run(DISCORD_TOKEN)
