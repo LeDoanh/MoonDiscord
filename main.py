@@ -1,6 +1,9 @@
+import asyncio
+
 import discord
 from discord import app_commands
 from discord.ext import commands
+from fastapi import FastAPI
 from openai import AsyncOpenAI
 
 from config import Config
@@ -19,6 +22,13 @@ CHANNEL_CHAT_IDS = {}  # key: channel_id (str), value: chat_id (str or None)
 
 # --- Initialize OpenAI client ---
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
+
+app = FastAPI()
+
+
+@app.get("/")
+async def root():
+    return {"status": "Moon Discord bot is running!"}
 
 
 # --- Custom Bot with setup_hook for slash commands ---
@@ -138,34 +148,45 @@ async def on_message(message):
     await bot.process_commands(message)
 
 
-if __name__ == "__main__":
+async def log_current_time():
+    import asyncio
     import datetime
     import logging
+
+    while True:
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        logging.basicConfig(level=logging.INFO)
+        logging.info(f"Current time: {current_time}")
+        await asyncio.sleep(600)
+
+
+async def start_web():
     import os
-    import threading
-    import time
 
     import uvicorn
-    from fastapi import FastAPI
 
-    app = FastAPI()
+    port = int(os.environ.get("PORT", 10000))
+    config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="warning")
+    server = uvicorn.Server(config)
+    await server.serve()
 
-    @app.get("/")
-    async def root():
-        return {"status": "Moon Discord bot is running!"}
 
-    def run_web():
-        port = int(os.environ.get("PORT", 10000))
-        uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
+async def main():
+    # Start web server and logging in background
+    web_task = asyncio.create_task(start_web())
+    log_task = asyncio.create_task(log_current_time())
+    # Start Discord bot (blocks until exit)
+    await bot.start(DISCORD_TOKEN)
+    # Optionally, cancel background tasks if bot exits
+    web_task.cancel()
+    log_task.cancel()
 
-    def log_current_time():
-        while True:
-            current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            logging.basicConfig(level=logging.INFO)
-            logging.info(f"Current time: {current_time}")
-            time.sleep(600)
 
-    threading.Thread(target=run_web, daemon=True).start()
-    threading.Thread(target=log_current_time, daemon=True).start()
+if __name__ == "__main__":
+    import nest_asyncio
 
-    bot.run(DISCORD_TOKEN)
+    nest_asyncio.apply()
+    asyncio.run(main())
+
+    nest_asyncio.apply()
+    asyncio.run(main())
