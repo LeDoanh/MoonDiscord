@@ -222,7 +222,7 @@ async def main():
         print("\n\n\nBLOCKED BY RATE LIMITS\nRESTARTING NOW\n\n\n")
         web_task.cancel()
         log_task.cancel()
-        os.system("python restarter.py")
+        os.system("python restart.py")
         os.system("kill 1")
 
     # Optionally, cancel background tasks if bot exits
