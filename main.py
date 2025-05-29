@@ -86,6 +86,28 @@ class ChatCommand(commands.Cog):
             f"Moon bắt đầu chủ đề mới rồi nè, {interaction.user.mention} hỏi gì tiếp đi ạ! ✨"
         )
 
+    @app_commands.command(name="help", description="❓ Hướng dẫn sử dụng Moon")
+    async def help(self, interaction: discord.Interaction):
+        help_text = (
+            "**Moon Discord Bot Hướng dẫn sử dụng:**\n"
+            "- `/chat <câu hỏi> [tool]`: Gửi câu hỏi tới Moon, có thể chọn công cụ hỗ trợ như Web search.\n"
+            "- `/new_chat`: Bắt đầu chủ đề trò chuyện mới với Moon.\n"
+            "- Đề cập @MoonBot trong kênh để hỏi nhanh bằng tin nhắn thường.\n"
+            "\n"
+            "**Ví dụ:**\n"
+            "- `/chat Tôi cần tin tức mới nhất về AI`\n"
+            "- `/chat Hãy tìm giúp tôi các công cụ học tiếng Anh hay nhất tool:Web search`\n"
+            "\n"
+            "**Lưu ý:**\n"
+            "- Moon sẽ trả lời trong vòng vài giây, nếu không thấy phản hồi có thể do lỗi mạng hoặc quá tải.\n"
+            "- Nếu bạn cần bắt đầu lại cuộc trò chuyện, hãy sử dụng lệnh `/new_chat`.\n"
+            "- Moon có thể sử dụng công cụ tìm kiếm web để cung cấp thông tin chính xác hơn.\n"
+            "- Hãy thường xuyên sử dụng /new_chat để bắt đầu chủ đề mới, tránh làm lộn xộn cuộc trò chuyện.\n"
+            "\n"
+            "Nếu cần hỗ trợ thêm, hãy liên hệ admin server!"
+        )
+        await interaction.response.send_message(help_text, ephemeral=True)
+
 
 # --- Function to send prompt to OpenAI and return the response ---
 async def ask_openai(
