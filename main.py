@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 import discord
 from discord import app_commands
@@ -214,7 +215,16 @@ async def main():
     web_task = asyncio.create_task(start_web())
     log_task = asyncio.create_task(log_current_time())
     # Start Discord bot (blocks until exit)
-    await bot.start(DISCORD_TOKEN)
+    try:
+        await bot.start(DISCORD_TOKEN)
+    except discord.errors.HTTPException as e:
+        print(e)
+        print("\n\n\nBLOCKED BY RATE LIMITS\nRESTARTING NOW\n\n\n")
+        web_task.cancel()
+        log_task.cancel()
+        os.system("python restarter.py")
+        os.system("kill 1")
+
     # Optionally, cancel background tasks if bot exits
     web_task.cancel()
     log_task.cancel()
