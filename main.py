@@ -157,6 +157,22 @@ async def log_current_time():
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         logging.basicConfig(level=logging.INFO)
         logging.info(f"Current time: {current_time}")
+        # call request to FastAPI to keep it alive
+        try:
+            import httpx
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get("http://localhost:10000/")
+                if response.status_code == 200:
+                    logging.info("FastAPI is alive!")
+                else:
+                    logging.warning(
+                        f"FastAPI returned status code: {response.status_code}"
+                    )
+        except Exception as e:
+            logging.error(f"Error pinging FastAPI: {e}")
+
+        # Sleep for 10 minutes
         await asyncio.sleep(600)
 
 
