@@ -184,7 +184,7 @@ async def log_current_time():
             import httpx
 
             async with httpx.AsyncClient() as client:
-                response = await client.get("http://localhost:10000/")
+                response = await client.get("https://moondiscord.onrender.com/")
                 if response.status_code == 200:
                     logging.info("FastAPI is alive!")
                 else:
