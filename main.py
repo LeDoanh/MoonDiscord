@@ -73,8 +73,7 @@ class ChatCommand(commands.Cog):
         channel_id = str(interaction.channel_id)
         CHANNEL_CHAT_IDS[channel_id] = None
         await interaction.response.send_message(
-            f"Moon bắt đầu chủ đề mới rồi nè, {interaction.user.mention} hỏi gì tiếp đi ạ! ✨",
-            ephemeral=True,
+            f"Moon bắt đầu chủ đề mới rồi nè, {interaction.user.mention} hỏi gì tiếp đi ạ! ✨"
         )
 
 
@@ -158,3 +157,11 @@ if __name__ == "__main__":
 
     threading.Thread(target=run_web, daemon=True).start()
     bot.run(DISCORD_TOKEN)
+
+    import datetime
+    import time
+
+    while True:
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"Current time: {current_time}")
+        time.sleep(600)
