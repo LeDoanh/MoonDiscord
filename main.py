@@ -1,10 +1,9 @@
 import asyncio
-import os
+import logging
 
 import discord
 from discord import app_commands
 from discord.ext import commands
-from fastapi import FastAPI
 from openai import AsyncOpenAI
 
 from config import Config
@@ -18,18 +17,21 @@ OPENAI_BASE_URL = config.openai_base_url
 OPENAI_MODEL = config.openai_model
 OPENAI_INSTRUCTIONS = config.openai_instructions
 
+# --- Setup logging ---
+logging.basicConfig(
+    level=logging.INFO, format="[% (asctime)s] %(levelname)s: %(message)s"
+)
+
 # --- Initialize channel chat IDs dictionary ---
-CHANNEL_CHAT_IDS = {}  # key: channel_id (str), value: chat_id (str or None)
+CHANNEL_CHAT_IDS: dict[str, str | None] = {}
 
 # --- Initialize OpenAI client ---
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
 
-app = FastAPI()
 
-
-@app.get("/")
-async def root():
-    return {"status": "Moon Discord bot is running!"}
+# --- Helper function to mention user ---
+def mention_user(user: discord.abc.User) -> str:
+    return user.mention if hasattr(user, "mention") else f"<@{user.id}>"
 
 
 # --- Custom Bot with setup_hook for slash commands ---
@@ -48,7 +50,7 @@ bot = MoonBot(command_prefix="!", intents=intents)
 
 # --- Slash command for chat ---
 class ChatCommand(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @app_commands.command(name="chat", description="💬 Gửi câu hỏi tới Moon")
@@ -71,11 +73,10 @@ class ChatCommand(commands.Cog):
         channel_id = str(interaction.channel_id)
         chat_id = CHANNEL_CHAT_IDS.get(channel_id)
         await interaction.response.defer(thinking=True)
-        user_mention = interaction.user.mention
+        user_mention = mention_user(interaction.user)
         tool_value = tool.value if tool else "none"
-        answer, new_chat_id = await ask_openai(
-            question, tool=tool_value, chat_id=chat_id
-        )
+        prompt = f"<@{interaction.user.id}>: {question.strip()}"
+        answer, new_chat_id = await ask_openai(prompt, tool=tool_value, chat_id=chat_id)
         CHANNEL_CHAT_IDS[channel_id] = new_chat_id
         await interaction.followup.send(f"{user_mention} {answer}")
 
@@ -84,28 +85,32 @@ class ChatCommand(commands.Cog):
         channel_id = str(interaction.channel_id)
         CHANNEL_CHAT_IDS[channel_id] = None
         await interaction.response.send_message(
-            f"Moon bắt đầu chủ đề mới rồi nè, {interaction.user.mention} hỏi gì tiếp đi ạ! ✨"
+            f"Moon bắt đầu chủ đề mới rồi nè, {mention_user(interaction.user)} hỏi gì tiếp đi ạ! ✨"
         )
 
     @app_commands.command(name="help", description="❓ Hướng dẫn sử dụng Moon")
     async def help(self, interaction: discord.Interaction):
         help_text = (
-            "**Moon Discord Bot Hướng dẫn sử dụng:**\n"
-            "- `/chat <câu hỏi> [tool]`: Gửi câu hỏi tới Moon, có thể chọn công cụ hỗ trợ như Web search.\n"
-            "- `/new_chat`: Bắt đầu chủ đề trò chuyện mới với Moon.\n"
-            "- Đề cập @MoonBot trong kênh để hỏi nhanh bằng tin nhắn thường.\n"
+            "**🌙 Hướng dẫn sử dụng Moon Discord Bot**\n"
             "\n"
-            "**Ví dụ:**\n"
-            "- `/chat Tôi cần tin tức mới nhất về AI`\n"
-            "- `/chat Hãy tìm giúp tôi các công cụ học tiếng Anh hay nhất tool:Web search`\n"
+            "Chào mừng bạn đến với Moon! Dưới đây là các lệnh hữu ích để bạn trò chuyện và khai thác sức mạnh AI của Moon:\n"
             "\n"
-            "**Lưu ý:**\n"
-            "- Moon sẽ trả lời trong vòng vài giây, nếu không thấy phản hồi có thể do lỗi mạng hoặc quá tải.\n"
-            "- Nếu bạn cần bắt đầu lại cuộc trò chuyện, hãy sử dụng lệnh `/new_chat`.\n"
-            "- Moon có thể sử dụng công cụ tìm kiếm web để cung cấp thông tin chính xác hơn.\n"
-            "- Hãy thường xuyên sử dụng /new_chat để bắt đầu chủ đề mới, tránh làm lộn xộn cuộc trò chuyện.\n"
+            "**Lệnh chính:**\n"
+            "- `/chat <câu hỏi> [tool]`: Đặt câu hỏi cho Moon, có thể chọn công cụ hỗ trợ như Web search để tìm kiếm thông tin mới nhất.\n"
+            "- `/new_chat`: Bắt đầu một chủ đề trò chuyện hoàn toàn mới với Moon.\n"
+            "- Đề cập @MoonBot trong kênh để hỏi nhanh bằng tin nhắn thông thường.\n"
             "\n"
-            "Nếu cần hỗ trợ thêm, hãy liên hệ admin server!"
+            "**Ví dụ sử dụng:**\n"
+            "- `/chat Hãy tóm tắt tin tức công nghệ hôm nay`\n"
+            "- `/chat Gợi ý các phương pháp học tiếng Anh hiệu quả tool:Web search`\n"
+            "\n"
+            "**Lưu ý quan trọng:**\n"
+            "- Moon sẽ phản hồi trong vài giây. Nếu không thấy trả lời, có thể do mạng hoặc hệ thống đang bận.\n"
+            "- Hãy dùng `/new_chat` để làm mới cuộc trò chuyện khi chuyển chủ đề, giúp Moon trả lời chính xác hơn.\n"
+            "- Khi cần thông tin cập nhật, hãy chọn tool:Web search để Moon tìm kiếm trên Internet.\n"
+            "- Đừng ngại hỏi bất cứ điều gì!\n"
+            "\n"
+            "Nếu gặp khó khăn hoặc cần hỗ trợ thêm, hãy liên hệ admin server. Chúc bạn trò chuyện vui vẻ cùng Moon! ✨"
         )
         await interaction.response.send_message(help_text, ephemeral=True)
 
@@ -143,95 +148,42 @@ async def ask_openai(
 # --- Discord bot events ---
 @bot.event
 async def on_ready():
-    print(f"{bot.user} is online and ready to chat!")
+    logging.info(f"{bot.user} is online and ready to chat!")
     if STATUS:
         await bot.change_presence(activity=discord.Game(STATUS))
 
 
 @bot.event
-async def on_message(message):
+async def on_message(message: discord.Message):
     if message.author == bot.user:
         return
     if bot.user in message.mentions:
         channel_id = str(message.channel.id)
         chat_id = CHANNEL_CHAT_IDS.get(channel_id)
         async with message.channel.typing():
-            user_mention = f"<@{message.author.id}>"
-            prompt = (
+            user_mention = mention_user(message.author)
+            prompt_content = (
                 message.content.replace(f"<@{bot.user.id}>", "")
                 .replace(f"<@!{bot.user.id}>", "")
                 .strip()
             )
-            if not prompt:
+            if not prompt_content:
                 await message.reply(f"{user_mention}, Moon có thể hỗ trợ gì ạ?")
                 return
+            prompt = f"<@{message.author.id}>: {prompt_content}"
             answer, new_chat_id = await ask_openai(prompt, chat_id=chat_id)
             CHANNEL_CHAT_IDS[channel_id] = new_chat_id
             await message.reply(f"{user_mention} {answer}")
     await bot.process_commands(message)
 
 
-async def log_current_time():
-    import asyncio
-    import datetime
-    import logging
-
-    while True:
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        logging.basicConfig(level=logging.INFO)
-        logging.info(f"Current time: {current_time}")
-        # call request to FastAPI to keep it alive
-        try:
-            import httpx
-
-            async with httpx.AsyncClient() as client:
-                response = await client.get("https://moondiscord.onrender.com/")
-                if response.status_code == 200:
-                    logging.info("FastAPI is alive!")
-                else:
-                    logging.warning(
-                        f"FastAPI returned status code: {response.status_code}"
-                    )
-        except Exception as e:
-            logging.error(f"Error pinging FastAPI: {e}")
-
-        # Sleep for 10 minutes
-        await asyncio.sleep(600)
-
-
-async def start_web():
-    import os
-
-    import uvicorn
-
-    port = int(os.environ.get("PORT", 10000))
-    config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="warning")
-    server = uvicorn.Server(config)
-    await server.serve()
-
-
 async def main():
-    # Start web server and logging in background
-    web_task = asyncio.create_task(start_web())
-    log_task = asyncio.create_task(log_current_time())
-    # Start Discord bot (blocks until exit)
     try:
         await bot.start(DISCORD_TOKEN)
     except discord.errors.HTTPException as e:
-        print(e)
-        print("\n\n\nBLOCKED BY RATE LIMITS\nRESTARTING NOW\n\n\n")
-        web_task.cancel()
-        log_task.cancel()
-        os.system("python restart.py")
-        os.system("kill 1")
-
-    # Optionally, cancel background tasks if bot exits
-    web_task.cancel()
-    log_task.cancel()
+        logging.error(e)
+        logging.error("\n\n\nBLOCKED BY RATE LIMITS\n\n\n")
 
 
 if __name__ == "__main__":
-    import nest_asyncio
-
-    nest_asyncio.apply()
     asyncio.run(main())
