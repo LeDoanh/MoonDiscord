@@ -53,7 +53,7 @@ python main.py
 Bạn cũng có thể mention bot trực tiếp trong kênh để trò chuyện nhanh.
 
 ## Đóng góp & Báo lỗi
-Mọi đóng góp, ý kiến hoặc báo lỗi đều được hoan nghênh qua Issues hoặc Pull Request.
+Mọi đóng góp, ý kiến hoặc báo lỗi đều được hoan nghênh qua Issues hoặc Pull Request. 
 
 ---
 MoonDiscord - Made with ❤️ for Luna!
