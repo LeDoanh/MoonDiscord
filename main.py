@@ -19,7 +19,7 @@ OPENAI_INSTRUCTIONS = config.openai_instructions
 
 # --- Setup logging ---
 logging.basicConfig(
-    level=logging.INFO, format="[% (asctime)s] %(levelname)s: %(message)s"
+    level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s"
 )
 
 # --- Initialize channel chat IDs dictionary ---

@@ -19,8 +19,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "."
           target: "~/MoonDiscord"
-          rm: true
-          exclude: ".venv,.env"
 
       - name: SSH and restart bot
         uses: appleboy/ssh-action@v1.0.3
