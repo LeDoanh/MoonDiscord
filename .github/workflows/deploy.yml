@@ -9,17 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: SSH Stop bot
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          script: |
-            pkill -f "python3 main.py" || true
+        uses: actions/checkout@v4
 
       - name: Copy files to server
         uses: appleboy/scp-action@v0.1.7
