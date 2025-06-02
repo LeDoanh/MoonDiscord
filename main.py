@@ -186,7 +186,7 @@ async def ask_openai(
 TOKEN_USAGE_FILE = os.path.join(os.path.dirname(__file__), "token_usage.json")
 TOKEN_LIMITS = {
     "gpt-4.1": 245_000,
-    "gpt-4.1-mini": 2_500_000,
+    "gpt-4.1-mini": 2_495_000,
 }
 
 
