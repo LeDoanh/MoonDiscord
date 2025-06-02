@@ -32,5 +32,7 @@ jobs:
             cd ~/MoonDiscord
             source .venv/bin/activate
             pip install -r requirements.txt
-            screen -S moonbot -X quit || true
-            screen -dmS moonbot bash -c 'source .venv/bin/activate && pip install -r requirements.txt && python3 main.py'
+            kill -9 `cat moon_pid.txt`
+            rm moon_pid.txt
+            nohup python3 main.py > moon.log 2>&1 &
+            echo $! > moon_pid.txt
