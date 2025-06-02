@@ -140,7 +140,7 @@ async def ask_openai(
         input_blocks[0]["content"].append({"type": "input_text", "text": prompt})
         for img_url in images:
             input_blocks[0]["content"].append(
-                {"type": "input_image", "image_url": {"url": img_url}}
+                {"type": "input_image", "image_url": img_url}
             )
     else:
         input_blocks = prompt
