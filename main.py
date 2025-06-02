@@ -1,7 +1,10 @@
 #!/usr/bin/env python3.10
 
 import asyncio
+import json
 import logging
+import os
+from datetime import datetime
 
 import discord
 from discord import app_commands
@@ -75,7 +78,6 @@ class ChatCommand(commands.Cog):
         channel_id = str(interaction.channel_id)
         chat_id = CHANNEL_CHAT_IDS.get(channel_id)
         await interaction.response.defer(thinking=True)
-        user_mention = mention_user(interaction.user)
         tool_value = tool.value if tool else "none"
         prompt = f"<@{interaction.user.id}>: {question.strip()}"
         answer, new_chat_id = await ask_openai(prompt, tool=tool_value, chat_id=chat_id)
@@ -119,8 +121,17 @@ class ChatCommand(commands.Cog):
 
 # --- Function to send prompt to OpenAI and return the response ---
 async def ask_openai(
-    prompt: str, tool: str = "none", chat_id: str = None, images: list[str] = None
+    prompt: str,
+    tool: str = "none",
+    chat_id: str = None,
+    images: list[str] = None,
+    force_model: str = None,
 ) -> tuple[str, str]:
+    usage = load_token_usage()
+    # Determine which model to use
+    model = force_model or OPENAI_MODEL
+    if model == "gpt-4.1" and usage["gpt-4.1"] >= TOKEN_LIMITS["gpt-4.1"]:
+        model = "gpt-4.1-mini"
     tools = []
     if tool == "web_search":
         tools.append(
@@ -146,16 +157,58 @@ async def ask_openai(
         input_blocks = prompt
     try:
         response = await openai_client.responses.create(
-            model=OPENAI_MODEL,
+            model=model,
             instructions=OPENAI_INSTRUCTIONS,
             previous_response_id=chat_id,
             input=input_blocks,
             tools=tools if tools else None,
         )
+        resp_usage = getattr(response, "usage", None)
+        if resp_usage:
+            used = resp_usage.get("total_tokens")
+            if used:
+                usage[model] = usage.get(model, 0) + used
+                save_token_usage(usage)
+                logging.info(
+                    f"Used {used} tokens for model {model}. Total usage: {usage[model]} tokens."
+                )
+        if model == "gpt-4.1" and usage["gpt-4.1"] > TOKEN_LIMITS["gpt-4.1"]:
+            return await ask_openai(
+                prompt, tool, chat_id, images, force_model="gpt-4.1-mini"
+            )
         new_chat_id = getattr(response, "id", chat_id)
         return response.output_text.strip(), new_chat_id
     except Exception as e:
         return f"OpenAI error: {e}", chat_id
+
+
+# --- Token usage tracking ---
+TOKEN_USAGE_FILE = os.path.join(os.path.dirname(__file__), "token_usage.json")
+TOKEN_LIMITS = {
+    "gpt-4.1": 245_000,
+    "gpt-4.1-mini": 2_500_000,
+}
+
+
+def load_token_usage():
+    today = datetime.now().strftime("%Y-%m-%d")
+    if not os.path.exists(TOKEN_USAGE_FILE):
+        usage = {"date": today, "gpt-4.1": 0, "gpt-4.1-mini": 0}
+        with open(TOKEN_USAGE_FILE, "w", encoding="utf-8") as f:
+            json.dump(usage, f)
+        return usage
+    with open(TOKEN_USAGE_FILE, "r", encoding="utf-8") as f:
+        usage = json.load(f)
+    if usage.get("date") != today:
+        usage = {"date": today, "gpt-4.1": 0, "gpt-4.1-mini": 0}
+        with open(TOKEN_USAGE_FILE, "w", encoding="utf-8") as f:
+            json.dump(usage, f)
+    return usage
+
+
+def save_token_usage(usage):
+    with open(TOKEN_USAGE_FILE, "w", encoding="utf-8") as f:
+        json.dump(usage, f)
 
 
 # --- Discord bot events ---
