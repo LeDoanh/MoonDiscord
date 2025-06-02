@@ -133,11 +133,15 @@ async def ask_openai(
                 },
             }
         )
-    # Compose input for vision models if images are present
     if images:
-        input_blocks = [{"type": "message", "content": prompt}]
+        input_blocks = [
+            {"role": "user", "content": []},
+        ]
+        input_blocks[0]["content"].append({"type": "input_text", "text": prompt})
         for img_url in images:
-            input_blocks.append({"type": "image_url", "image_url": {"url": img_url}})
+            input_blocks[0]["content"].append(
+                {"type": "input_image", "image_url": {"url": img_url}}
+            )
     else:
         input_blocks = prompt
     try:
