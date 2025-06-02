@@ -119,7 +119,7 @@ class ChatCommand(commands.Cog):
 
 # --- Function to send prompt to OpenAI and return the response ---
 async def ask_openai(
-    prompt: str, tool: str = "none", chat_id: str = None
+    prompt: str, tool: str = "none", chat_id: str = None, images: list[str] = None
 ) -> tuple[str, str]:
     tools = []
     if tool == "web_search":
@@ -133,12 +133,19 @@ async def ask_openai(
                 },
             }
         )
+    # Compose input for vision models if images are present
+    if images:
+        input_blocks = [{"type": "text", "text": prompt}]
+        for img_url in images:
+            input_blocks.append({"type": "image_url", "image_url": {"url": img_url}})
+    else:
+        input_blocks = prompt
     try:
         response = await openai_client.responses.create(
             model=OPENAI_MODEL,
             instructions=OPENAI_INSTRUCTIONS,
             previous_response_id=chat_id,
-            input=prompt,
+            input=input_blocks,
             tools=tools if tools else None,
         )
         new_chat_id = getattr(response, "id", chat_id)
@@ -169,11 +176,26 @@ async def on_message(message: discord.Message):
                 .replace(f"<@!{bot.user.id}>", "")
                 .strip()
             )
-            if not prompt_content:
+            # Collect image URLs if any image attachments
+            image_urls = [
+                att.url
+                for att in message.attachments
+                if (att.content_type and att.content_type.startswith("image/"))
+                or att.filename.lower().endswith(
+                    (".png", ".jpg", ".jpeg", ".webp", ".gif")
+                )
+            ]
+            if not prompt_content and not image_urls:
                 await message.reply(f"{user_mention}, Moon có thể hỗ trợ gì ạ?")
                 return
-            prompt = f"<@{message.author.id}>: {prompt_content}"
-            answer, new_chat_id = await ask_openai(prompt, chat_id=chat_id)
+            prompt = (
+                f"<@{message.author.id}>: {prompt_content}"
+                if prompt_content
+                else f"<@{message.author.id}> gửi ảnh:"
+            )
+            answer, new_chat_id = await ask_openai(
+                prompt, chat_id=chat_id, images=image_urls if image_urls else None
+            )
             CHANNEL_CHAT_IDS[channel_id] = new_chat_id
             await message.reply(f"{answer}")
     await bot.process_commands(message)
