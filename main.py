@@ -165,7 +165,7 @@ async def ask_openai(
         )
         resp_usage = getattr(response, "usage", None)
         if resp_usage:
-            used = resp_usage.get("total_tokens")
+            used = getattr(resp_usage, "total_tokens", None)
             if used:
                 usage[model] = usage.get(model, 0) + used
                 save_token_usage(usage)
