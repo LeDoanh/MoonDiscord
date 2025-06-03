@@ -55,4 +55,4 @@ Bạn cũng có thể mention bot trực tiếp trong kênh để trò chuyện 
 Mọi đóng góp, ý kiến hoặc báo lỗi đều được hoan nghênh qua Issues hoặc Pull Request.
 
 ---
-MoonDiscord - Made with ❤️ for Luna!
+MoonDiscord - Made with ❤️ for Discord!
