@@ -10,7 +10,7 @@ MoonDiscord là bot Discord sử dụng OpenAI GPT để trò chuyện và hỗ 
 - Hỗ trợ web search (nếu bật qua slash command)
 
 ## Yêu cầu hệ thống
-- Python 3.10.11
+- Python 3.10
 - Các thư viện trong `requirements.txt`
 
 ## Cài đặt
