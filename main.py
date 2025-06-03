@@ -16,11 +16,11 @@ from config import Config
 # --- Load configuration ---
 config = Config()
 DISCORD_TOKEN = config.discord_token
-OPENAI_API_KEY = config.openai_api_key
 STATUS = config.status
+INSTRUCTIONS = config.instructions
+OPENAI_API_KEY = config.openai_api_key
 OPENAI_BASE_URL = config.openai_base_url
 OPENAI_MODEL = config.openai_model
-OPENAI_INSTRUCTIONS = config.openai_instructions
 
 # --- Setup logging ---
 logging.basicConfig(
@@ -158,7 +158,7 @@ async def ask_openai(
     try:
         response = await openai_client.responses.create(
             model=model,
-            instructions=OPENAI_INSTRUCTIONS,
+            instructions=INSTRUCTIONS,
             previous_response_id=chat_id,
             input=input_blocks,
             tools=tools if tools else None,
@@ -185,8 +185,8 @@ async def ask_openai(
 # --- Token usage tracking ---
 TOKEN_USAGE_FILE = os.path.join(os.path.dirname(__file__), "token_usage.json")
 TOKEN_LIMITS = {
-    "gpt-4.1": 245_000,
-    "gpt-4.1-mini": 2_495_000,
+    "gpt-4.1": 240_000,
+    "gpt-4.1-mini": 2_490_000,
 }
 
 
