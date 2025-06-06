@@ -110,9 +110,7 @@ class ChatCommand(commands.Cog):
         prompt = f"<@{interaction.user.id}>: {question.strip()}"
         answer, new_chat_id = await ask_openai(prompt, tool=tool_value, chat_id=chat_id)
         CHANNEL_CHAT_IDS[channel_id] = new_chat_id
-        await interaction.followup.send(f"{answer}") @ app_commands.command(
-            name="new_chat", description="🆕 Bắt đầu chủ đề mới với Moon"
-        )
+        await interaction.followup.send(f"{answer}")
 
     @app_commands.command(name="new_chat", description="🆕 Bắt đầu chủ đề mới với Moon")
     async def new_chat(self, interaction: discord.Interaction):
