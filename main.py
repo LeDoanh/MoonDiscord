@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import random
 from datetime import datetime
 
 import discord
@@ -29,6 +30,33 @@ logging.basicConfig(
 
 # --- Initialize channel chat IDs dictionary ---
 CHANNEL_CHAT_IDS: dict[str, str | None] = {}
+
+# --- Random messages for new chat ---
+NEW_CHAT_MESSAGES = [
+    "Moon bắt đầu chủ đề mới rồi nè, {user} hỏi gì tiếp đi ạ! ✨",
+    "Okay! Moon đã reset tất cả và sẵn sàng cho cuộc trò chuyện mới với {user}! 🌟",
+    "Xong rồi! {user} có thể bắt đầu chủ đề hoàn toàn mới với Moon ngay bây giờ! 🚀",
+    "Fresh start! Moon đã làm mới và chờ {user} chia sẻ điều gì đó thú vị! 💫",
+    "Done! Giờ {user} có thể nói chuyện với Moon về bất kỳ chủ đề nào! 🎉",
+    "Reset hoàn tất! {user} muốn khám phá chủ đề gì với Moon hôm nay? 🌈",
+    "Chủ đề mới đã sẵn sàng! {user} có câu hỏi hay ý tưởng gì thú vị không? ⭐",
+    "Moon đã chuẩn bị tinh thần cho cuộc trò chuyện mới! {user} bắt đầu thôi! 🎊",
+    "New chat activated! {user} có muốn thảo luận về điều gì đặc biệt không? 🌸",
+]
+
+# --- Random support messages ---
+SUPPORT_MESSAGES = [
+    "{user}, Moon có thể hỗ trợ gì ạ? 🌙",
+    "{user}, có điều gì Moon có thể giúp đỡ không ạ? ✨",
+    "Chào {user}! Moon sẵn sàng hỗ trợ bạn rồi đây! 🌟",
+    "{user} cần Moon giúp gì nào? Cứ thoải mái hỏi nhé! 💫",
+    "Hi {user}! Moon có thể làm gì cho bạn hôm nay? 🚀",
+    "{user}, Moon đang lắng nghe và sẵn sàng hỗ trợ! 🎊",
+    "Xin chào {user}! Có gì Moon có thể giúp bạn không? 🌈",
+    "{user}, bạn muốn Moon hỗ trợ về vấn đề gì vậy? 🎉",
+    "Chào bạn {user}! Moon có thể tư vấn hoặc giúp gì không? ⭐",
+    "{user}, có câu hỏi hay chủ đề nào bạn muốn thảo luận không? 🌸",
+]
 
 # --- Initialize OpenAI client ---
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
@@ -82,15 +110,17 @@ class ChatCommand(commands.Cog):
         prompt = f"<@{interaction.user.id}>: {question.strip()}"
         answer, new_chat_id = await ask_openai(prompt, tool=tool_value, chat_id=chat_id)
         CHANNEL_CHAT_IDS[channel_id] = new_chat_id
-        await interaction.followup.send(f"{answer}")
+        await interaction.followup.send(f"{answer}") @ app_commands.command(
+            name="new_chat", description="🆕 Bắt đầu chủ đề mới với Moon"
+        )
 
-    @app_commands.command(name="new_chat", description="🆕 Bắt đầu chủ đề mới với Moon")
     async def new_chat(self, interaction: discord.Interaction):
         channel_id = str(interaction.channel_id)
         CHANNEL_CHAT_IDS[channel_id] = None
-        await interaction.response.send_message(
-            f"Moon bắt đầu chủ đề mới rồi nè, {mention_user(interaction.user)} hỏi gì tiếp đi ạ! ✨"
+        message = random.choice(NEW_CHAT_MESSAGES).format(
+            user=mention_user(interaction.user)
         )
+        await interaction.response.send_message(message)
 
     @app_commands.command(name="help", description="❓ Hướng dẫn sử dụng Moon")
     async def help(self, interaction: discord.Interaction):
@@ -232,8 +262,7 @@ async def on_message(message: discord.Message):
                 message.content.replace(f"<@{bot.user.id}>", "")
                 .replace(f"<@!{bot.user.id}>", "")
                 .strip()
-            )
-            # Collect image URLs if any image attachments
+            )  # Collect image URLs if any image attachments
             image_urls = [
                 att.url
                 for att in message.attachments
@@ -243,7 +272,10 @@ async def on_message(message: discord.Message):
                 )
             ]
             if not prompt_content and not image_urls:
-                await message.reply(f"{user_mention}, Moon có thể hỗ trợ gì ạ?")
+                support_message = random.choice(SUPPORT_MESSAGES).format(
+                    user=user_mention
+                )
+                await message.reply(support_message)
                 return
             prompt = (
                 f"<@{message.author.id}>: {prompt_content}"
