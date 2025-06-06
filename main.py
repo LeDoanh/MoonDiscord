@@ -114,11 +114,15 @@ class ChatCommand(commands.Cog):
             name="new_chat", description="🆕 Bắt đầu chủ đề mới với Moon"
         )
 
+    @app_commands.command(name="new_chat", description="🆕 Bắt đầu chủ đề mới với Moon")
     async def new_chat(self, interaction: discord.Interaction):
         channel_id = str(interaction.channel_id)
         CHANNEL_CHAT_IDS[channel_id] = None
         message = random.choice(NEW_CHAT_MESSAGES).format(
             user=mention_user(interaction.user)
+        )
+        logging.info(
+            f"New chat started in channel {channel_id} by {interaction.user} with message: {message}"
         )
         await interaction.response.send_message(message)
 
