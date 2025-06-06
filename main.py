@@ -119,9 +119,6 @@ class ChatCommand(commands.Cog):
         message = random.choice(NEW_CHAT_MESSAGES).format(
             user=mention_user(interaction.user)
         )
-        logging.info(
-            f"New chat started in channel {channel_id} by {interaction.user} with message: {message}"
-        )
         await interaction.response.send_message(message)
 
     @app_commands.command(name="help", description="❓ Hướng dẫn sử dụng Moon")
