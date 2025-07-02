@@ -8,6 +8,10 @@ MoonDiscord là bot Discord sử dụng OpenAI GPT để trò chuyện và hỗ 
 - Tùy chỉnh hướng dẫn trả lời (instructions) qua file cấu hình
 - Lưu lịch sử hội thoại theo từng kênh
 - Hỗ trợ web search (nếu bật qua slash command)
+- **Function calling tự động**: AI tự động sử dụng các function khi cần thiết
+  - Tính toán (calculate)
+  - Xem thời gian (get_current_time)
+  - Thời tiết (get_weather)
 
 ## Yêu cầu hệ thống
 - Python 3.10
@@ -47,9 +51,18 @@ python main.py
 ### Slash Commands
 - `/chat` — Gửi câu hỏi tới Moon, có thể chọn công cụ hỗ trợ (None, Web search)
 - `/new_chat` — Bắt đầu chủ đề mới với Moon
+- `/functions` — Xem danh sách functions có sẵn
 - `/help` — Xem hướng dẫn sử dụng bot
 
 Bạn cũng có thể mention bot trực tiếp trong kênh để trò chuyện nhanh.
+
+### Function Calling Tự Động
+Moon sẽ tự động sử dụng các function phù hợp mà không cần chỉ định:
+```
+/chat Mấy giờ rồi?              # → tự động dùng get_current_time
+/chat Tính 25*17+100            # → tự động dùng calculate  
+/chat Thời tiết Hà Nội          # → tự động dùng get_weather
+```
 
 ## Đóng góp & Báo lỗi
 Mọi đóng góp, ý kiến hoặc báo lỗi đều được hoan nghênh qua Issues hoặc Pull Request.

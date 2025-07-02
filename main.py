@@ -5,7 +5,9 @@ import json
 import logging
 import os
 import random
+import inspect
 from datetime import datetime
+from typing import Dict, List, Any, Callable
 
 import discord
 from discord import app_commands
@@ -27,6 +29,8 @@ OPENAI_MODEL = config.openai_model
 logging.basicConfig(
     level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s"
 )
+
+logging.info("Starting Moon Discord Bot...")
 
 # --- Initialize channel chat IDs dictionary ---
 CHANNEL_CHAT_IDS: dict[str, str | None] = {}
@@ -61,6 +65,111 @@ SUPPORT_MESSAGES = [
 # --- Initialize OpenAI client ---
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
 
+
+# --- Function calling system ---
+class FunctionRegistry:
+    """Registry để quản lý các function có thể gọi từ OpenAI"""
+    
+    def __init__(self):
+        self.functions: Dict[str, Callable] = {}
+        self.function_schemas: List[Dict[str, Any]] = []
+    
+    def register(self, name: str = None, description: str = "", parameters: Dict[str, Any] = None):
+        """Decorator để đăng ký function"""
+        def decorator(func: Callable):
+            func_name = name or func.__name__
+            
+            # Tạo schema cho OpenAI API với format mới
+            schema = {
+                "type": "function",
+                "name": func_name,
+                "description": description or func.__doc__ or f"Function {func_name}",
+                "parameters": parameters or {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False
+                },
+                "strict": True
+            }
+            
+            if not parameters:
+                # Tự động tạo parameters từ function signature
+                sig = inspect.signature(func)
+                props = {}
+                required = []
+                
+                for param_name, param in sig.parameters.items():
+                    if param_name == 'self':
+                        continue
+                        
+                    param_type = "string"  # default
+                    if param.annotation != inspect.Parameter.empty:
+                        if param.annotation == int:
+                            param_type = "integer"
+                        elif param.annotation == float:
+                            param_type = "number"
+                        elif param.annotation == bool:
+                            param_type = "boolean"
+                        elif param.annotation == list:
+                            param_type = "array"
+                        elif param.annotation == dict:
+                            param_type = "object"
+                    
+                    props[param_name] = {"type": param_type}
+                    
+                    # Trong strict mode, tất cả properties đều phải có trong required
+                    required.append(param_name)
+                
+                if props:
+                    schema["parameters"] = {
+                        "type": "object",
+                        "properties": props,
+                        "required": required,
+                        "additionalProperties": False
+                    }
+            
+            self.functions[func_name] = func
+            self.function_schemas.append(schema)
+            return func
+        return decorator
+    
+    async def call_function(self, name: str, arguments: Dict[str, Any]) -> str:
+        """Gọi function và trả về kết quả"""
+        if name not in self.functions:
+            return f"Function '{name}' not found"
+        
+        try:
+            func = self.functions[name]
+            logging.info(f"Calling function {name} with arguments: {arguments}")
+            
+            if inspect.iscoroutinefunction(func):
+                result = await func(**arguments)
+            else:
+                result = func(**arguments)
+            
+            logging.info(f"Function {name} returned: {result}")
+            return str(result)
+        except Exception as e:
+            logging.error(f"Error calling function {name}: {e}")
+            logging.error(f"Arguments were: {arguments}")
+            return f"Error executing {name}: {str(e)}"
+    
+    def get_schemas(self) -> List[Dict[str, Any]]:
+        """Lấy danh sách schemas cho OpenAI"""
+        return self.function_schemas
+
+# Khởi tạo registry
+function_registry = FunctionRegistry()
+
+# Import và đăng ký tất cả functions
+try:
+    from functions import register_all_functions
+    register_all_functions(function_registry)
+    logging.info(f"Đã tải {len(function_registry.get_schemas())} functions")
+except ImportError:
+    logging.warning("Không tìm thấy functions.py")
+except Exception as e:
+    logging.error(f"Lỗi khi tải functions: {e}")
 
 # --- Helper function to mention user ---
 def mention_user(user: discord.abc.User) -> str:
@@ -110,6 +219,11 @@ class ChatCommand(commands.Cog):
         prompt = f"<@{interaction.user.id}>: {question.strip()}"
         answer, new_chat_id = await ask_openai(prompt, tool=tool_value, chat_id=chat_id)
         CHANNEL_CHAT_IDS[channel_id] = new_chat_id
+        
+        # Đảm bảo không gửi tin nhắn rỗng
+        if not answer or not answer.strip():
+            answer = "Xin lỗi, Moon gặp sự cố khi xử lý câu hỏi. Hãy thử lại nhé! 🌙"
+        
         await interaction.followup.send(f"{answer}")
 
     @app_commands.command(name="new_chat", description="🆕 Bắt đầu chủ đề mới với Moon")
@@ -129,24 +243,91 @@ class ChatCommand(commands.Cog):
             "Chào mừng bạn đến với Moon! Dưới đây là các lệnh hữu ích để bạn trò chuyện và khai thác sức mạnh AI của Moon:\n"
             "\n"
             "**Lệnh chính:**\n"
-            "- `/chat <câu hỏi> [tool]`: Đặt câu hỏi cho Moon, có thể chọn công cụ hỗ trợ như Web search để tìm kiếm thông tin mới nhất.\n"
+            "- `/chat <câu hỏi> [tool]`: Đặt câu hỏi cho Moon, có thể chọn công cụ hỗ trợ.\n"
             "- `/new_chat`: Bắt đầu một chủ đề trò chuyện hoàn toàn mới với Moon.\n"
+            "- `/functions`: Xem danh sách các function Moon có thể sử dụng.\n"
             "- Đề cập @MoonBot trong kênh để hỏi nhanh bằng tin nhắn thông thường.\n"
             "\n"
+            "**Công cụ hỗ trợ:**\n"
+            "- **None**: Sử dụng AI thông thường + functions tự động\n"
+            "- **Web search**: Tìm kiếm thông tin mới nhất trên Internet + functions tự động\n"
+            "\n"
+            "**Tính năng đặc biệt:**\n"
+            "- **Functions tự động**: Moon sẽ tự động sử dụng các function khi cần thiết như:\n"
+            "  • Tính toán (calculate)\n"
+            "  • Xem thời gian (get_current_time)\n"
+            "  • Thời tiết (get_weather)\n"
+            "  • Tạo/xem lời nhắc (create_reminder, get_reminders)\n"
+            "  • Tung xúc xắc (roll_dice)\n"
+            "  • Chọn ngẫu nhiên (random_choice)\n"
+            "  • Tạo mật khẩu (generate_password)\n"
+            "  • Chuyển đổi tiền tệ (convert_currency)\n"
+            "\n"
             "**Ví dụ sử dụng:**\n"
-            "- `/chat Hãy tóm tắt tin tức công nghệ hôm nay`\n"
-            "- `/chat Gợi ý các phương pháp học tiếng Anh hiệu quả tool:Web search`\n"
+            "- `/chat Hãy tóm tắt tin tức công nghệ hôm nay tool:Web search`\n"
+            "- `/chat Mấy giờ rồi?` (tự động dùng function)\n"
+            "- `/chat Tính 25*17+33` (tự động dùng function)\n"
+            "- `/chat Thời tiết Hà Nội hôm nay` (tự động dùng function)\n"
+            "- `/chat Nhắc tôi học tiếng Anh` (tự động dùng function)\n"
+            "- `/chat Tung 2 xúc xắc 6 mặt` (tự động dùng function)\n"
             "\n"
             "**Lưu ý quan trọng:**\n"
             "- Moon sẽ phản hồi trong vài giây. Nếu không thấy trả lời, có thể do mạng hoặc hệ thống đang bận.\n"
             "- Hãy dùng `/new_chat` để làm mới cuộc trò chuyện khi chuyển chủ đề, giúp Moon trả lời chính xác hơn.\n"
-            "- Khi cần thông tin cập nhật, hãy chọn tool:Web search để Moon tìm kiếm trên Internet.\n"
+            "- Moon sẽ tự động nhận diện và sử dụng function phù hợp, bạn không cần chỉ định.\n"
+            "- Khi cần thông tin mới nhất, hãy chọn tool:Web search.\n"
             "- Đừng ngại hỏi bất cứ điều gì!\n"
             "\n"
             "Nếu gặp khó khăn hoặc cần hỗ trợ thêm, hãy liên hệ admin server. Chúc bạn trò chuyện vui vẻ cùng Moon! ✨"
         )
         await interaction.response.send_message(help_text, ephemeral=True)
 
+    @app_commands.command(name="functions", description="📋 Xem danh sách functions có sẵn")
+    async def functions(self, interaction: discord.Interaction):
+        functions_text = (
+            "**🔧 Danh sách Functions có sẵn cho Moon:**\n\n"
+        )
+        
+        for schema in function_registry.get_schemas():
+            name = schema["name"]
+            description = schema["description"]
+            
+            functions_text += f"**{name}**: {description}\n"
+            
+            # Thêm thông tin parameters nếu có
+            if "parameters" in schema:
+                params = schema["parameters"]
+                if "properties" in params:
+                    param_list = []
+                    required = params.get("required", [])
+                    for param_name, param_info in params["properties"].items():
+                        param_type = param_info.get("type", "string")
+                        is_required = param_name in required
+                        param_desc = param_info.get("description", "")
+                        
+                        param_str = f"`{param_name}` ({param_type})"
+                        if is_required:
+                            param_str += " *[bắt buộc]*"
+                        if param_desc:
+                            param_str += f" - {param_desc}"
+                        param_list.append(param_str)
+                    
+                    if param_list:
+                        functions_text += f"  • Tham số: {', '.join(param_list)}\n"
+            
+            functions_text += "\n"
+        
+        functions_text += (
+            "**💡 Cách sử dụng:**\n"
+            "- Moon sẽ **tự động** sử dụng function phù hợp khi cần\n"
+            "- Không cần chỉ định tool:Functions, chỉ cần hỏi tự nhiên\n"
+            "- Ví dụ: `/chat Mấy giờ rồi?` (tự động dùng get_current_time)\n"
+            "- Hoặc: `/chat Tính 15*23` (tự động dùng calculate)\n"
+            "- Hoặc: `/chat Thời tiết Hà Nội` (tự động dùng get_weather)"
+        )
+        
+        await interaction.response.send_message(functions_text, ephemeral=True)
+        
 
 # --- Function to send prompt to OpenAI and return the response ---
 async def ask_openai(
@@ -157,11 +338,11 @@ async def ask_openai(
     force_model: str = None,
 ) -> tuple[str, str]:
     usage = load_token_usage()
-    # Determine which model to use
     model = force_model or OPENAI_MODEL
     if model == "gpt-4.1" and usage["gpt-4.1"] >= TOKEN_LIMITS["gpt-4.1"]:
         model = "gpt-4.1-mini"
     tools = []
+    
     if tool == "web_search":
         tools.append(
             {
@@ -173,6 +354,10 @@ async def ask_openai(
                 },
             }
         )
+    
+    function_tools = function_registry.get_schemas()
+    if function_tools:
+        tools.extend(function_tools)
     if images:
         input_blocks = [
             {"role": "user", "content": []},
@@ -183,7 +368,9 @@ async def ask_openai(
                 {"type": "input_image", "image_url": img_url}
             )
     else:
-        input_blocks = prompt
+        input_blocks = [
+            {"role": "user", "content": [{"type": "input_text", "text": prompt}]}   
+        ]
     try:
         response = await openai_client.responses.create(
             model=model,
@@ -191,7 +378,10 @@ async def ask_openai(
             previous_response_id=chat_id,
             input=input_blocks,
             tools=tools if tools else None,
+            tool_choice="auto"
         )
+    
+        output_text = getattr(response, 'output_text', "").strip()
         resp_usage = getattr(response, "usage", None)
         if resp_usage:
             used = getattr(resp_usage, "total_tokens", None)
@@ -201,12 +391,91 @@ async def ask_openai(
                 logging.info(
                     f"Used {used} tokens for model {model}. Total usage: {usage[model]} tokens."
                 )
+        
+        function_results = []
+        function_calls_found = False
+        
+        if hasattr(response, 'output') and response.output:
+            for output_item in response.output:
+                if hasattr(output_item, 'type') and output_item.type == "function_call":
+                    func_name = getattr(output_item, 'name', None)
+                    func_args_str = getattr(output_item, 'arguments', '{}')
+                    call_id = getattr(output_item, 'call_id', None)
+                    
+                    if func_name:
+                        function_calls_found = True
+                        try:
+                            func_args = json.loads(func_args_str) if func_args_str else {}
+                        except json.JSONDecodeError as e:
+                            func_args = {}
+
+                        result = await function_registry.call_function(func_name, func_args)
+                        function_results.append({
+                            "call_id": call_id,
+                            "name": func_name,
+                            "result": result
+                        })
+        
+        # Nếu có function calls, gửi kết quả lên OpenAI để có response tự nhiên
+        if function_calls_found and function_results:
+            try:
+                tool_call = response.output[0]
+
+                input_blocks.append({
+                    "type": "function_call",
+                    "call_id": tool_call.call_id,
+                    "name": tool_call.name,
+                    "arguments": tool_call.arguments,
+                    "id": tool_call.id,
+                    "status": tool_call.status
+                })
+
+                input_blocks.append({
+                    "type": "function_call_output",
+                    "call_id": tool_call.call_id,
+                    "output": str(result)
+                })
+
+                follow_up_response = await openai_client.responses.create(
+                    model=model,
+                    instructions=INSTRUCTIONS,
+                    input=input_blocks,
+                    previous_response_id=chat_id,
+                    tools=tools if tools else None,
+                    tool_choice="auto"
+                )
+
+                final_response = getattr(follow_up_response, 'output_text', "").strip()
+                new_chat_id = getattr(follow_up_response, "id", chat_id)
+                resp_usage = getattr(follow_up_response, "usage", None)
+                if resp_usage:
+                    used = getattr(resp_usage, "total_tokens", None)
+                    if used:
+                        usage[model] = usage.get(model, 0) + used
+                        save_token_usage(usage)
+                        logging.info(
+                            f"Used {used} tokens for model {model}. Total usage: {usage[model]} tokens."
+                        )
+                
+            except Exception as e:
+                logging.error(f"Error getting follow-up response from OpenAI: {e}")
+                original_response = str(output_text).strip() if output_text else ""
+                func_display = "\n".join(
+                    [f"**{r['name']}**: {r['result']}" for r in function_results]
+                )
+                final_response = f"{original_response}\n\n{func_display}" if original_response else func_display
+                new_chat_id = getattr(response, "id", chat_id)
+
+        else:
+            final_response = str(output_text).strip() if output_text else ""
+            new_chat_id = getattr(response, "id", chat_id)
+        
         if model == "gpt-4.1" and usage["gpt-4.1"] > TOKEN_LIMITS["gpt-4.1"]:
             return await ask_openai(
                 prompt, tool, chat_id, images, force_model="gpt-4.1-mini"
             )
-        new_chat_id = getattr(response, "id", chat_id)
-        return response.output_text.strip(), new_chat_id
+        
+        return final_response, new_chat_id
     except Exception as e:
         return f"OpenAI error: {e}", chat_id
 
@@ -261,7 +530,7 @@ async def on_message(message: discord.Message):
                 message.content.replace(f"<@{bot.user.id}>", "")
                 .replace(f"<@!{bot.user.id}>", "")
                 .strip()
-            )  # Collect image URLs if any image attachments
+            )
             image_urls = [
                 att.url
                 for att in message.attachments
