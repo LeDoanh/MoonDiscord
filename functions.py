@@ -21,7 +21,7 @@ def register_all_functions(function_registry):
         try:
             from datetime import datetime
             now = datetime.now()
-            return "Giờ UTC+7: " + now.strftime("%Y-%m-%d %H:%M:%S")
+            return "Giờ UTC: " + now.strftime("%Y-%m-%d %H:%M:%S")
         except Exception as e:
             return f"❌ Lỗi khi lấy thời gian: {str(e)}"
 
