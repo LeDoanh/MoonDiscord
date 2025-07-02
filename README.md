@@ -60,7 +60,6 @@ Bạn cũng có thể mention bot trực tiếp trong kênh để trò chuyện 
 Moon sẽ tự động sử dụng các function phù hợp mà không cần chỉ định:
 ```
 /chat Mấy giờ rồi?              # → tự động dùng get_current_time
-/chat Tính 25*17+100            # → tự động dùng calculate  
 /chat Thời tiết Hà Nội          # → tự động dùng get_weather
 ```
 
