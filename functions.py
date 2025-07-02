@@ -14,32 +14,14 @@ def register_all_functions(function_registry):
     @function_registry.register(
         name="get_current_time",
         description="Lấy thời gian hiện tại",
-        parameters={
-            "type": "object",
-            "properties": {
-                "timezone": {
-                    "type": "string",
-                    "description": "Múi giờ (mặc định là Asia/Ho_Chi_Minh)",
-                    "default": "Asia/Ho_Chi_Minh"
-                }
-            },
-            "required": ["timezone"],
-            "additionalProperties": False
-        }
+        parameters={}
     )
-    async def get_current_time(timezone: str = "Asia/Ho_Chi_Minh") -> str:
+    async def get_current_time() -> str:
         """Trả về thời gian hiện tại"""
         try:
             from datetime import datetime
             now = datetime.now()
-            # Đảm bảo timezone có giá trị mặc định nếu không được truyền
-            if not timezone:
-                timezone = "Asia/Ho_Chi_Minh"
-                
-            if timezone == "Asia/Ho_Chi_Minh":
-                return now.strftime("%Y-%m-%d %H:%M:%S UTC+7")
-            else:
-                return now.strftime("%Y-%m-%d %H:%M:%S")
+            return "Giờ UTC+7: " + now.strftime("%Y-%m-%d %H:%M:%S")
         except Exception as e:
             return f"❌ Lỗi khi lấy thời gian: {str(e)}"
 
