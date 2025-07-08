@@ -1,4 +1,4 @@
-# MoonDiscord 🌙
+# MoonDiscordGPT 🌙
 
 **[English](#english-version) | [Tiếng Việt](#vietnamese-version)**
 
@@ -6,7 +6,7 @@
 
 ## Vietnamese Version
 
-MoonDiscord là bot Discord sử dụng OpenAI GPT để trò chuyện và hỗ trợ người dùng với khả năng đa ngôn ngữ. Bot có thể tùy chỉnh tính cách và phong cách trả lời thông qua INSTRUCTIONS, tạo nên trải nghiệm trò chuyện độc đáo và thân thiện ✨
+MoonDiscordGPT là bot Discord sử dụng OpenAI GPT để trò chuyện và hỗ trợ người dùng với khả năng đa ngôn ngữ. Bot có thể tùy chỉnh tính cách và phong cách trả lời thông qua INSTRUCTIONS, tạo nên trải nghiệm trò chuyện độc đáo và thân thiện ✨
 
 ### Tính năng
 - 🌍 **Hỗ trợ đa ngôn ngữ**: Trò chuyện bằng tiếng Việt, Anh, và nhiều ngôn ngữ khác
@@ -79,11 +79,14 @@ Moon sẽ tự động sử dụng các function phù hợp mà không cần ch�
 ### Đóng góp & Báo lỗi
 Mọi đóng góp, ý kiến hoặc báo lỗi đều được hoan nghênh qua Issues hoặc Pull Request.
 
+### Giấy phép
+Dự án này được phát hành dưới [giấy phép MIT](LICENSE). Bạn có thể tự do sử dụng, sửa đổi và phân phối mã nguồn.
+
 ---
 
 ## English Version
 
-MoonDiscord is a Discord bot powered by OpenAI GPT that provides multilingual chat support with customizable personality through INSTRUCTIONS, creating a unique and friendly conversation experience ✨
+MoonDiscordGPT is a Discord bot powered by OpenAI GPT that provides multilingual chat support with customizable personality through INSTRUCTIONS, creating a unique and friendly conversation experience ✨
 
 ### Features
 - 🌍 **Multilingual support**: Chat in Vietnamese, English, and many other languages
@@ -155,6 +158,9 @@ Moon will automatically use appropriate functions without manual specification:
 
 ### Contributing & Bug Reports
 All contributions, feedback, or bug reports are welcome through Issues or Pull Requests.
+
+### License
+This project is released under the [MIT License](LICENSE). You are free to use, modify, and distribute the source code.
 
 ---
 MoonDiscord - Made with ❤️ for Discord!
