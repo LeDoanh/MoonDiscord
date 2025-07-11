@@ -6,10 +6,9 @@
 
 ## Vietnamese Version
 
-MoonDiscordGPT là bot Discord sử dụng OpenAI GPT để trò chuyện và hỗ trợ người dùng với khả năng đa ngôn ngữ. Bot có thể tùy chỉnh tính cách và phong cách trả lời thông qua INSTRUCTIONS, tạo nên trải nghiệm trò chuyện độc đáo và thân thiện ✨
+MoonDiscordGPT là bot Discord sử dụng OpenAI GPT để trò chuyện và hỗ trợ người dùng. Bot có thể tùy chỉnh tính cách và phong cách trả lời thông qua INSTRUCTIONS, tạo nên trải nghiệm trò chuyện độc đáo và thân thiện ✨
 
 ### Tính năng
-- 🌍 **Hỗ trợ đa ngôn ngữ**: Trò chuyện bằng tiếng Việt, Anh, và nhiều ngôn ngữ khác
 - 🎭 **Tùy chỉnh tính cách**: Điều chỉnh cách trả lời và tính cách của bot qua INSTRUCTIONS
 - 💬 Trả lời tin nhắn và slash command trực tiếp trên Discord
 - 🤖 Hỗ trợ nhiều model OpenAI GPT (gpt-4.1, gpt-4o, gpt-4.1-mini, ...)
@@ -89,7 +88,6 @@ Dự án này được phát hành dưới [giấy phép MIT](LICENSE). Bạn c�
 MoonDiscordGPT is a Discord bot powered by OpenAI GPT that provides multilingual chat support with customizable personality through INSTRUCTIONS, creating a unique and friendly conversation experience ✨
 
 ### Features
-- 🌍 **Multilingual support**: Chat in Vietnamese, English, and many other languages
 - 🎭 **Personality customization**: Adjust bot's response style and personality via INSTRUCTIONS
 - 💬 Direct message and slash command responses on Discord
 - 🤖 Support for multiple OpenAI GPT models (gpt-4.1, gpt-4o, gpt-4.1-mini, ...)
