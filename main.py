@@ -329,8 +329,8 @@ async def ask_openai(
 ) -> tuple[str, str]:
     usage = load_token_usage()
     model = force_model or OPENAI_MODEL
-    if model == "gpt-4.1" and usage["gpt-4.1"] >= TOKEN_LIMITS["gpt-4.1"]:
-        model = "gpt-4.1-mini"
+    if model == "gpt-5" and usage["gpt-5"] >= TOKEN_LIMITS["gpt-5"]:
+        model = "gpt-5-mini"
     tools = []
     
     if tool == "web_search":
@@ -460,9 +460,9 @@ async def ask_openai(
             final_response = str(output_text).strip() if output_text else ""
             new_chat_id = getattr(response, "id", chat_id)
         
-        if model == "gpt-4.1" and usage["gpt-4.1"] > TOKEN_LIMITS["gpt-4.1"]:
+        if model == "gpt-5" and usage["gpt-5"] > TOKEN_LIMITS["gpt-5"]:
             return await ask_openai(
-                prompt, tool, chat_id, images, force_model="gpt-4.1-mini"
+                prompt, tool, chat_id, images, force_model="gpt-5-mini"
             )
         
         return final_response, new_chat_id
@@ -473,22 +473,22 @@ async def ask_openai(
 # --- Token usage tracking ---
 TOKEN_USAGE_FILE = os.path.join(os.path.dirname(__file__), "token_usage.json")
 TOKEN_LIMITS = {
-    "gpt-4.1": 240_000,
-    "gpt-4.1-mini": 2_490_000,
+    "gpt-5": 240_000,
+    "gpt-5-mini": 2_490_000,
 }
 
 
 def load_token_usage():
     today = datetime.now().strftime("%Y-%m-%d")
     if not os.path.exists(TOKEN_USAGE_FILE):
-        usage = {"date": today, "gpt-4.1": 0, "gpt-4.1-mini": 0}
+        usage = {"date": today, "gpt-5": 0, "gpt-5-mini": 0}
         with open(TOKEN_USAGE_FILE, "w", encoding="utf-8") as f:
             json.dump(usage, f)
         return usage
     with open(TOKEN_USAGE_FILE, "r", encoding="utf-8") as f:
         usage = json.load(f)
     if usage.get("date") != today:
-        usage = {"date": today, "gpt-4.1": 0, "gpt-4.1-mini": 0}
+        usage = {"date": today, "gpt-5": 0, "gpt-5-mini": 0}
         with open(TOKEN_USAGE_FILE, "w", encoding="utf-8") as f:
             json.dump(usage, f)
     return usage
