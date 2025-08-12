@@ -410,10 +410,13 @@ async def ask_openai(
         if function_calls_found and function_results:
             try:
                 tool_call = response.output[0]
+                logging.info(
+                    f"Tool call found: {tool_call}"
+                )
 
                 input_blocks.append({
                     "type": "function_call",
-                    "call_id": tool_call.call_id,
+                    "call_id": tool_call.id,
                     "name": tool_call.name,
                     "arguments": tool_call.arguments,
                     "id": tool_call.id,
@@ -422,7 +425,7 @@ async def ask_openai(
 
                 input_blocks.append({
                     "type": "function_call_output",
-                    "call_id": tool_call.call_id,
+                    "call_id": tool_call.id,
                     "output": str(result)
                 })
 
