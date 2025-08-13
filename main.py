@@ -352,7 +352,8 @@ async def ask_openai(
             previous_response_id=chat_id,
             input=input_blocks,
             tools=tools if tools else None,
-            tool_choice="auto"
+            tool_choice="auto",
+            reasoning={"effort": "minimal"} if OPENAI_MODEL.startswith("gpt-5") else None
         )
     
         output_text = getattr(response, 'output_text', "").strip()
@@ -431,7 +432,8 @@ async def ask_openai(
                     input=input_blocks,
                     previous_response_id=chat_id,
                     tools=tools if tools else None,
-                    tool_choice="auto"
+                    tool_choice="auto",
+                    reasoning={"effort": "minimal"} if OPENAI_MODEL.startswith("gpt-5") else None
                 )
 
                 final_response = getattr(follow_up_response, 'output_text', "").strip()
