@@ -25,11 +25,16 @@ OPENAI_API_KEY = config.openai_api_key
 OPENAI_BASE_URL = config.openai_base_url
 OPENAI_MODEL = config.openai_model
 
+# --- Model tiers and token limits from config ---
+PREMIUM_MODELS = config.premium_models
+MINI_MODELS = config.mini_models
+TOKEN_LIMITS = config.token_limits
+TOKEN_USAGE_FILE = os.path.join(os.path.dirname(__file__), config.token_usage_file)
+
 # --- Setup logging ---
 logging.basicConfig(
     level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s"
 )
-
 logging.info("Starting Moon Discord Bot...")
 
 # --- Initialize channel chat IDs dictionary ---
@@ -64,7 +69,6 @@ SUPPORT_MESSAGES = [
 
 # --- Initialize OpenAI client ---
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
-
 
 # --- Function calling system ---
 class FunctionRegistry:
@@ -175,7 +179,6 @@ except Exception as e:
 def mention_user(user: discord.abc.User) -> str:
     return user.mention if hasattr(user, "mention") else f"<@{user.id}>"
 
-
 # --- Custom Bot with setup_hook for slash commands ---
 class MoonBot(commands.Bot):
     async def setup_hook(self):
@@ -183,12 +186,10 @@ class MoonBot(commands.Bot):
         await self.tree.sync()
         self.tree_synced = True
 
-
 # --- Initialize bot with intents ---
 intents = discord.Intents.default()
 intents.message_content = True
 bot = MoonBot(command_prefix="!", intents=intents)
-
 
 # --- Slash command for chat ---
 class ChatCommand(commands.Cog):
@@ -198,26 +199,17 @@ class ChatCommand(commands.Cog):
     @app_commands.command(name="chat", description="💬 Gửi câu hỏi tới Moon")
     @app_commands.describe(
         question="Câu hỏi hoặc nội dung muốn hỏi",
-        tool="Công cụ hỗ trợ: None, Web search",
-    )
-    @app_commands.choices(
-        tool=[
-            app_commands.Choice(name="None", value="none"),
-            app_commands.Choice(name="Web search", value="web_search"),
-        ]
     )
     async def chat(
         self,
         interaction: discord.Interaction,
         question: str,
-        tool: app_commands.Choice[str] = None,
     ):
         channel_id = str(interaction.channel_id)
         chat_id = CHANNEL_CHAT_IDS.get(channel_id)
         await interaction.response.defer(thinking=True)
-        tool_value = tool.value if tool else "none"
         prompt = f"<@{interaction.user.id}>: {question.strip()}"
-        answer, new_chat_id = await ask_openai(prompt, tool=tool_value, chat_id=chat_id)
+        answer, new_chat_id = await ask_openai(prompt, chat_id=chat_id)
         CHANNEL_CHAT_IDS[channel_id] = new_chat_id
         
         # Đảm bảo không gửi tin nhắn rỗng
@@ -243,14 +235,10 @@ class ChatCommand(commands.Cog):
             "Chào mừng bạn đến với Moon! Dưới đây là các lệnh hữu ích để bạn trò chuyện và khai thác sức mạnh AI của Moon:\n"
             "\n"
             "**Lệnh chính:**\n"
-            "- `/chat <câu hỏi> [tool]`: Đặt câu hỏi cho Moon, có thể chọn công cụ hỗ trợ.\n"
+            "- `/chat <câu hỏi>`: Đặt câu hỏi cho Moon.\n"
             "- `/new_chat`: Bắt đầu một chủ đề trò chuyện hoàn toàn mới với Moon.\n"
             "- `/functions`: Xem danh sách các function Moon có thể sử dụng.\n"
             "- Đề cập @MoonBot trong kênh để hỏi nhanh bằng tin nhắn thông thường.\n"
-            "\n"
-            "**Công cụ hỗ trợ:**\n"
-            "- **None**: Sử dụng AI thông thường + functions tự động\n"
-            "- **Web search**: Tìm kiếm thông tin mới nhất trên Internet + functions tự động\n"
             "\n"
             "**Tính năng đặc biệt:**\n"
             "- **Functions tự động**: Moon sẽ tự động sử dụng các function khi cần thiết như:\n"
@@ -258,7 +246,6 @@ class ChatCommand(commands.Cog):
             "  • Thời tiết (get_weather)\n"
             "\n"
             "**Ví dụ sử dụng:**\n"
-            "- `/chat Hãy tóm tắt tin tức công nghệ hôm nay tool:Web search`\n"
             "- `/chat Mấy giờ rồi?` (tự động dùng function)\n"
             "- `/chat Thời tiết Hà Nội hôm nay` (tự động dùng function)\n"
             "\n"
@@ -266,7 +253,6 @@ class ChatCommand(commands.Cog):
             "- Moon sẽ phản hồi trong vài giây. Nếu không thấy trả lời, có thể do mạng hoặc hệ thống đang bận.\n"
             "- Hãy dùng `/new_chat` để làm mới cuộc trò chuyện khi chuyển chủ đề, giúp Moon trả lời chính xác hơn.\n"
             "- Moon sẽ tự động nhận diện và sử dụng function phù hợp, bạn không cần chỉ định.\n"
-            "- Khi cần thông tin mới nhất, hãy chọn tool:Web search.\n"
             "- Đừng ngại hỏi bất cứ điều gì!\n"
             "\n"
             "Nếu gặp khó khăn hoặc cần hỗ trợ thêm, hãy liên hệ admin server. Chúc bạn trò chuyện vui vẻ cùng Moon! ✨"
@@ -317,33 +303,31 @@ class ChatCommand(commands.Cog):
         )
         
         await interaction.response.send_message(functions_text, ephemeral=True)
-        
 
 # --- Function to send prompt to OpenAI and return the response ---
 async def ask_openai(
     prompt: str,
-    tool: str = "none",
     chat_id: str = None,
     images: list[str] = None,
     force_model: str = None,
 ) -> tuple[str, str]:
     usage = load_token_usage()
     model = force_model or OPENAI_MODEL
-    if model == "gpt-5" and usage["gpt-5"] >= TOKEN_LIMITS["gpt-5"]:
+
+    # Xác định tier của model và kiểm tra giới hạn
+    model_tier = None
+    if model in PREMIUM_MODELS:
+        model_tier = "premium"
+    elif model in MINI_MODELS:
+        model_tier = "mini"
+
+    # Nếu model premium hết hạn, chuyển sang gpt-5-mini
+    if model_tier == "premium" and usage.get("premium", 0) >= TOKEN_LIMITS["premium"]:
+        logging.warning(f"Premium model limit reached. Falling back to gpt-5-mini.")
         model = "gpt-5-mini"
+        model_tier = "mini"
+
     tools = []
-    
-    if tool == "web_search":
-        tools.append(
-            {
-                "type": "web_search_preview",
-                "search_context_size": "medium",
-                "user_location": {
-                    "type": "approximate",
-                    "country": "VN",
-                },
-            }
-        )
     
     function_tools = function_registry.get_schemas()
     if function_tools:
@@ -375,11 +359,11 @@ async def ask_openai(
         resp_usage = getattr(response, "usage", None)
         if resp_usage:
             used = getattr(resp_usage, "total_tokens", None)
-            if used:
-                usage[model] = usage.get(model, 0) + used
+            if used and model_tier:
+                usage[model_tier] = usage.get(model_tier, 0) + used
                 save_token_usage(usage)
                 logging.info(
-                    f"Used {used} tokens for model {model}. Total usage: {usage[model]} tokens."
+                    f"Used {used} tokens for model {model} (tier: {model_tier}). Total tier usage: {usage[model_tier]} tokens."
                 )
         
         function_results = []
@@ -409,14 +393,26 @@ async def ask_openai(
         # Nếu có function calls, gửi kết quả lên OpenAI để có response tự nhiên
         if function_calls_found and function_results:
             try:
-                tool_call = response.output[0]
-                logging.info(
-                    f"Tool call found: {tool_call}"
-                )
+                tool_call = None
+
+                for output in response.output:
+                    if output.type == "reasoning":
+                        input_blocks.append(output)
+                    else:
+                        tool_call = output if hasattr(output, 'type') and output.type == "function_call" else None
+
+                if not tool_call:
+                    logging.warning("No function call found in response output.")
+                    original_response = str(output_text).strip() if output_text else ""
+                    func_display = "\n".join(
+                        [f"**{r['name']}**: {r['result']}" for r in function_results]
+                    )
+                    final_response = f"{original_response}\n\n{func_display}" if original_response else func_display
+                    return final_response, chat_id
 
                 input_blocks.append({
                     "type": "function_call",
-                    "call_id": tool_call.id,
+                    "call_id": tool_call.call_id,
                     "name": tool_call.name,
                     "arguments": tool_call.arguments,
                     "id": tool_call.id,
@@ -425,7 +421,7 @@ async def ask_openai(
 
                 input_blocks.append({
                     "type": "function_call_output",
-                    "call_id": tool_call.id,
+                    "call_id": tool_call.call_id,
                     "output": str(result)
                 })
 
@@ -443,11 +439,11 @@ async def ask_openai(
                 resp_usage = getattr(follow_up_response, "usage", None)
                 if resp_usage:
                     used = getattr(resp_usage, "total_tokens", None)
-                    if used:
-                        usage[model] = usage.get(model, 0) + used
+                    if used and model_tier:
+                        usage[model_tier] = usage.get(model_tier, 0) + used
                         save_token_usage(usage)
                         logging.info(
-                            f"Used {used} tokens for model {model}. Total usage: {usage[model]} tokens."
+                            f"Used {used} tokens for model {model} (tier: {model_tier}). Total tier usage: {usage[model_tier]} tokens."
                         )
                 
             except Exception as e:
@@ -463,44 +459,45 @@ async def ask_openai(
             final_response = str(output_text).strip() if output_text else ""
             new_chat_id = getattr(response, "id", chat_id)
         
-        if model == "gpt-5" and usage["gpt-5"] > TOKEN_LIMITS["gpt-5"]:
+        # Kiểm tra lại giới hạn sau khi gọi và thử lại với model mini nếu cần
+        if model_tier == "premium" and usage.get("premium", 0) > TOKEN_LIMITS["premium"]:
+            logging.warning(f"Premium model limit reached after call. Retrying with gpt-5-mini.")
             return await ask_openai(
-                prompt, tool, chat_id, images, force_model="gpt-5-mini"
+                prompt, chat_id, images, force_model="gpt-5-mini"
             )
         
         return final_response, new_chat_id
     except Exception as e:
-        return f"OpenAI error: {e}", chat_id
-
+        logging.error(f"OpenAI API error: {e}")
+        return f"Xin lỗi, mình gặp lỗi khi kết nối tới OpenAI: {e}", chat_id
 
 # --- Token usage tracking ---
-TOKEN_USAGE_FILE = os.path.join(os.path.dirname(__file__), "token_usage.json")
-TOKEN_LIMITS = {
-    "gpt-5": 240_000,
-    "gpt-5-mini": 2_490_000,
-}
-
-
 def load_token_usage():
+    """Tải thông tin sử dụng token từ file JSON, reset nếu sang ngày mới hoặc file không hợp lệ."""
     today = datetime.now().strftime("%Y-%m-%d")
-    if not os.path.exists(TOKEN_USAGE_FILE):
-        usage = {"date": today, "gpt-5": 0, "gpt-5-mini": 0}
-        with open(TOKEN_USAGE_FILE, "w", encoding="utf-8") as f:
-            json.dump(usage, f)
-        return usage
-    with open(TOKEN_USAGE_FILE, "r", encoding="utf-8") as f:
-        usage = json.load(f)
-    if usage.get("date") != today:
-        usage = {"date": today, "gpt-5": 0, "gpt-5-mini": 0}
-        with open(TOKEN_USAGE_FILE, "w", encoding="utf-8") as f:
-            json.dump(usage, f)
-    return usage
+    default_usage = {"date": today, "premium": 0, "mini": 0}
 
+    if not os.path.exists(TOKEN_USAGE_FILE):
+        with open(TOKEN_USAGE_FILE, "w", encoding="utf-8") as f:
+            json.dump(default_usage, f)
+        return default_usage
+
+    try:
+        with open(TOKEN_USAGE_FILE, "r", encoding="utf-8") as f:
+            usage = json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError):
+        usage = default_usage
+
+    if usage.get("date") != today or "premium" not in usage or "mini" not in usage:
+        usage = default_usage
+        with open(TOKEN_USAGE_FILE, "w", encoding="utf-8") as f:
+            json.dump(usage, f)
+            
+    return usage
 
 def save_token_usage(usage):
     with open(TOKEN_USAGE_FILE, "w", encoding="utf-8") as f:
         json.dump(usage, f)
-
 
 # --- Discord bot events ---
 @bot.event
@@ -508,7 +505,6 @@ async def on_ready():
     logging.info(f"{bot.user} is online and ready to chat!")
     if STATUS:
         await bot.change_presence(activity=discord.Game(STATUS))
-
 
 @bot.event
 async def on_message(message: discord.Message):
@@ -550,14 +546,12 @@ async def on_message(message: discord.Message):
             await message.reply(f"{answer}")
     await bot.process_commands(message)
 
-
 async def main():
     try:
         await bot.start(DISCORD_TOKEN)
     except discord.errors.HTTPException as e:
         logging.error(e)
         logging.error("\n\n\nBLOCKED BY RATE LIMITS\n\n\n")
-
 
 if __name__ == "__main__":
     asyncio.run(main())

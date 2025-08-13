@@ -13,7 +13,6 @@ MoonDiscordGPT là bot Discord sử dụng OpenAI GPT để trò chuyện và h�
 - 💬 Trả lời tin nhắn và slash command trực tiếp trên Discord
 - 🤖 Hỗ trợ nhiều model OpenAI GPT (gpt-4.1, gpt-4o, gpt-4.1-mini, ...)
 - 📝 Lưu lịch sử hội thoại theo từng kênh
-- 🔍 Hỗ trợ web search (nếu bật qua slash command)
 - **🔧 Function calling tự động**: AI tự động sử dụng các function khi cần thiết bằng cách tự Intent Detection
   - ⏰ Xem thời gian (get_current_time)
   - 🌤️ Thời tiết (get_weather)
@@ -42,16 +41,31 @@ Bạn có thể nạp 5$ vào [OpenAI Playground](https://platform.openai.com/pl
 ### Cấu hình `.env`
 Tạo file `.env` với nội dung mẫu:
 ```env
+# --- Discord Bot ---
 DISCORD_TOKEN="<token bot discord>"
 DISCORD_STATUS="[]~(￣▽￣)~*"
-OPENAI_BASE_URL="https://api.openai.com/v1"
+
+# --- OpenAI API ---
 OPENAI_API_KEY="<openai_api_key>"
-OPENAI_MODEL="gpt-4.1-mini"
-OPENAI_INSTRUCTIONS="Moon là một cô bạn vui vẻ, thân thiện và thông minh. Trả lời bằng tiếng Việt với phong cách dễ thương."
+OPENAI_BASE_URL="https://api.openai.com/v1"
+OPENAI_MODEL="gpt-4.1-mini" # Model mặc định khi chat
+
+# --- Bot Personality ---
+INSTRUCTIONS="Moon là một cô bạn vui vẻ, thân thiện và thông minh. Trả lời bằng tiếng Việt với phong cách dễ thương"
+
+# --- Token Management (Dành cho người dùng OpenAI Free Tier) ---
+# Các model được tính vào nhóm "premium" (giới hạn thấp)
+PREMIUM_MODELS='["gpt-4.1", "gpt-4o"]'
+# Các model được tính vào nhóm "mini" (giới hạn cao)
+MINI_MODELS='["gpt-4.1-mini", "gpt-4o-mini"]'
+# Giới hạn token mỗi ngày cho mỗi nhóm
+TOKEN_LIMITS='{"premium": 250000, "mini": 2500000}'
+# Tên file để lưu trữ lượng token đã sử dụng
+TOKEN_USAGE_FILE="token_usage.json"
 ```
 > **Lưu ý:** 
 > - Không chia sẻ file `.env` hoặc token/API key cho người khác.
-> - Điều chỉnh `OPENAI_INSTRUCTIONS` để tùy chỉnh tính cách và ngôn ngữ của bot.
+> - Điều chỉnh `INSTRUCTIONS` để tùy chỉnh tính cách và ngôn ngữ của bot.
 
 ### Sử dụng
 Chạy bot bằng lệnh:
@@ -92,7 +106,6 @@ MoonDiscordGPT is a Discord bot powered by OpenAI GPT that provides multilingual
 - 💬 Direct message and slash command responses on Discord
 - 🤖 Support for multiple OpenAI GPT models (gpt-4.1, gpt-4o, gpt-4.1-mini, ...)
 - 📝 Conversation history saved per channel
-- 🔍 Web search support (when enabled via slash command)
 - **🔧 Automatic function calling**: AI automatically uses functions when needed through Intent Detection
   - ⏰ Get current time (get_current_time)
   - 🌤️ Weather information (get_weather)
@@ -121,16 +134,31 @@ You can add $5 to [OpenAI Playground](https://platform.openai.com/playground) an
 ### Configuration `.env`
 Create a `.env` file with the following content:
 ```env
+# --- Discord Bot ---
 DISCORD_TOKEN="<your_discord_bot_token>"
 DISCORD_STATUS="[]~(￣▽￣)~*"
-OPENAI_BASE_URL="https://api.openai.com/v1"
+
+# --- OpenAI API ---
 OPENAI_API_KEY="<your_openai_api_key>"
-OPENAI_MODEL="gpt-4.1-mini"
-OPENAI_INSTRUCTIONS="Moon is a cheerful, friendly, and intelligent assistant. Respond in English with a cute style."
+OPENAI_BASE_URL="https://api.openai.com/v1"
+OPENAI_MODEL="gpt-4.1-mini" # Default model for chats
+
+# --- Bot Personality ---
+INSTRUCTIONS="Moon is a cheerful, friendly, and intelligent assistant. Respond in English with a cute style."
+
+# --- Token Management (For OpenAI Free Tier Users) ---
+# Models counted towards the "premium" group (lower limit)
+PREMIUM_MODELS='["gpt-4.1", "gpt-4o"]'
+# Models counted towards the "mini" group (higher limit)
+MINI_MODELS='["gpt-4.1-mini", "gpt-4o-mini"]'
+# Daily token limits for each group
+TOKEN_LIMITS='{"premium": 250000, "mini": 2500000}'
+# Filename to store token usage data
+TOKEN_USAGE_FILE="token_usage.json"
 ```
 > **Note:** 
 > - Never share your `.env` file or tokens/API keys with others.
-> - Adjust `OPENAI_INSTRUCTIONS` to customize the bot's personality and language.
+> - Adjust `INSTRUCTIONS` to customize the bot's personality and language.
 
 ### Usage
 Run the bot with:

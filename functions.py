@@ -20,7 +20,7 @@ def register_all_functions(function_registry):
         """Trả về thời gian hiện tại"""
         try:
             from datetime import datetime
-            now = datetime.now()
+            now = datetime.utcnow()
             return "Giờ UTC: " + now.strftime("%Y-%m-%d %H:%M:%S")
         except Exception as e:
             return f"❌ Lỗi khi lấy thời gian: {str(e)}"
