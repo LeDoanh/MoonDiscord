@@ -16,6 +16,7 @@ class Config(BaseSettings):
     mini_models: set[str] = Field(default_factory=set, alias="MINI_MODELS")
     token_limits: Dict[str, int] = Field(default_factory=dict, alias="TOKEN_LIMITS")
     token_usage_file: str = Field(default="token_usage.json", alias="TOKEN_USAGE_FILE")
+    openweathermap_api_key: str = Field(default="", alias="OPENWEATHERMAP_API_KEY")
 
     class Config:
         env_file = ".env"
