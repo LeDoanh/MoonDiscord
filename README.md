@@ -13,7 +13,8 @@ MoonDiscordGPT là bot Discord sử dụng OpenAI GPT để trò chuyện và h�
 - 💬 Trả lời tin nhắn và slash command trực tiếp trên Discord
 - 🤖 Hỗ trợ nhiều model OpenAI GPT (gpt-4.1, gpt-4o, gpt-4.1-mini, ...)
 - 📝 Lưu lịch sử hội thoại theo từng kênh
-- **🔧 Function calling tự động**: AI tự động sử dụng các function khi cần thiết bằng cách tự Intent Detection
+- **� Hỗ trợ file đính kèm**: Moon có thể đọc và xử lý nội dung từ file ảnh (PNG, JPG, JPEG, WebP, GIF) và PDF.
+- **�🔧 Function calling tự động**: AI tự động sử dụng các function khi cần thiết bằng cách tự Intent Detection
   - ⏰ Xem thời gian (get_current_time)
   - 🌤️ Thời tiết (get_weather)
 
@@ -75,7 +76,7 @@ python main.py
 - Bot sẽ tự động kết nối Discord và sẵn sàng nhận lệnh.
 
 ### Slash Commands
-- `/chat` — Gửi câu hỏi tới Moon, có thể chọn công cụ hỗ trợ (None, Web search)
+- `/chat <câu hỏi>`: Đặt câu hỏi cho Moon (có thể đính kèm ảnh hoặc PDF).
 - `/new_chat` — Bắt đầu chủ đề mới với Moon
 - `/functions` — Xem danh sách functions có sẵn
 - `/help` — Xem hướng dẫn sử dụng bot
@@ -106,7 +107,8 @@ MoonDiscordGPT is a Discord bot powered by OpenAI GPT that provides multilingual
 - 💬 Direct message and slash command responses on Discord
 - 🤖 Support for multiple OpenAI GPT models (gpt-4.1, gpt-4o, gpt-4.1-mini, ...)
 - 📝 Conversation history saved per channel
-- **🔧 Automatic function calling**: AI automatically uses functions when needed through Intent Detection
+- **� Attachment Support**: Moon can read and process content from image files (PNG, JPG, JPEG, WebP, GIF) and PDFs.
+- **�🔧 Automatic function calling**: AI automatically uses functions when needed through Intent Detection
   - ⏰ Get current time (get_current_time)
   - 🌤️ Weather information (get_weather)
 
@@ -168,7 +170,7 @@ python main.py
 - The bot will automatically connect to Discord and be ready to receive commands.
 
 #### Slash Commands
-- `/chat` — Send a question to Moon, with optional tools (None, Web search)
+- `/chat` — Send a question to Moon (you can attach an image or PDF).
 - `/new_chat` — Start a new conversation topic with Moon
 - `/functions` — View available functions list
 - `/help` — View bot usage instructions

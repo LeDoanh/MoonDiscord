@@ -199,17 +199,36 @@ class ChatCommand(commands.Cog):
     @app_commands.command(name="chat", description="💬 Gửi câu hỏi tới Moon")
     @app_commands.describe(
         question="Câu hỏi hoặc nội dung muốn hỏi",
+        attachment="File đính kèm (hỗ trợ ảnh và PDF)"
     )
     async def chat(
         self,
         interaction: discord.Interaction,
         question: str,
+        attachment: discord.Attachment = None
     ):
         channel_id = str(interaction.channel_id)
         chat_id = CHANNEL_CHAT_IDS.get(channel_id)
         await interaction.response.defer(thinking=True)
         prompt = f"<@{interaction.user.id}>: {question.strip()}"
-        answer, new_chat_id = await ask_openai(prompt, chat_id=chat_id)
+        
+        image_urls = None
+        pdf_urls = None
+        
+        if attachment:
+            if (attachment.content_type and attachment.content_type.startswith("image/")) or \
+               attachment.filename.lower().endswith((".png", ".jpg", ".jpeg", ".webp", ".gif")):
+                image_urls = [attachment.url]
+            elif (attachment.content_type and attachment.content_type == "application/pdf") or \
+                 attachment.filename.lower().endswith(".pdf"):
+                pdf_urls = [attachment.url]
+        
+        answer, new_chat_id = await ask_openai(
+            prompt, 
+            chat_id=chat_id,
+            images=image_urls,
+            pdfs=pdf_urls
+        )
         CHANNEL_CHAT_IDS[channel_id] = new_chat_id
         
         # Đảm bảo không gửi tin nhắn rỗng
@@ -235,12 +254,15 @@ class ChatCommand(commands.Cog):
             "Chào mừng bạn đến với Moon! Dưới đây là các lệnh hữu ích để bạn trò chuyện và khai thác sức mạnh AI của Moon:\n"
             "\n"
             "**Lệnh chính:**\n"
-            "- `/chat <câu hỏi>`: Đặt câu hỏi cho Moon.\n"
+            "- `/chat <câu hỏi>`: Đặt câu hỏi cho Moon (có thể đính kèm ảnh hoặc PDF).\n"
             "- `/new_chat`: Bắt đầu một chủ đề trò chuyện hoàn toàn mới với Moon.\n"
             "- `/functions`: Xem danh sách các function Moon có thể sử dụng.\n"
             "- Đề cập @MoonBot trong kênh để hỏi nhanh bằng tin nhắn thông thường.\n"
             "\n"
             "**Tính năng đặc biệt:**\n"
+            "- **Hỗ trợ file đính kèm**: Moon có thể xử lý:\n"
+            "  • Ảnh (PNG, JPG, JPEG, WebP, GIF)\n"
+            "  • File PDF\n"
             "- **Functions tự động**: Moon sẽ tự động sử dụng các function khi cần thiết như:\n"
             "  • Xem thời gian (get_current_time)\n"
             "  • Thời tiết (get_weather)\n"
@@ -309,6 +331,7 @@ async def ask_openai(
     prompt: str,
     chat_id: str = None,
     images: list[str] = None,
+    pdfs: list[str] = None,
     force_model: str = None,
 ) -> tuple[str, str]:
     usage = load_token_usage()
@@ -332,15 +355,22 @@ async def ask_openai(
     function_tools = function_registry.get_schemas()
     if function_tools:
         tools.extend(function_tools)
-    if images:
+    if images or pdfs:
         input_blocks = [
             {"role": "user", "content": []},
         ]
+        logging.info(f"Preparing input blocks for OpenAI with images: {images}, pdfs: {pdfs}")
         input_blocks[0]["content"].append({"type": "input_text", "text": prompt})
-        for img_url in images:
-            input_blocks[0]["content"].append(
-                {"type": "input_image", "image_url": img_url}
-            )
+        if images:
+            for img_url in images:
+                input_blocks[0]["content"].append(
+                    {"type": "input_image", "image_url": img_url}
+                )
+        if pdfs:
+            for pdf_url in pdfs:
+                input_blocks[0]["content"].append(
+                    {"type": "input_file", "file_url": pdf_url}
+                )
     else:
         input_blocks = [
             {"role": "user", "content": [{"type": "input_text", "text": prompt}]}   
@@ -352,8 +382,7 @@ async def ask_openai(
             previous_response_id=chat_id,
             input=input_blocks,
             tools=tools if tools else None,
-            tool_choice="auto",
-            reasoning={"effort": "minimal"} if OPENAI_MODEL.startswith("gpt-5") else None
+            tool_choice="auto"
         )
     
         output_text = getattr(response, 'output_text', "").strip()
@@ -530,7 +559,13 @@ async def on_message(message: discord.Message):
                     (".png", ".jpg", ".jpeg", ".webp", ".gif")
                 )
             ]
-            if not prompt_content and not image_urls:
+            pdf_urls = [
+                att.url
+                for att in message.attachments
+                if (att.content_type and att.content_type == "application/pdf")
+                or att.filename.lower().endswith(".pdf")
+            ]
+            if not prompt_content and not image_urls and not pdf_urls:
                 support_message = random.choice(SUPPORT_MESSAGES).format(
                     user=user_mention
                 )
@@ -539,10 +574,12 @@ async def on_message(message: discord.Message):
             prompt = (
                 f"<@{message.author.id}>: {prompt_content}"
                 if prompt_content
-                else f"<@{message.author.id}> gửi ảnh:"
+                else f"<@{message.author.id}> gửi {'ảnh' if image_urls else 'file PDF'}:"
             )
             answer, new_chat_id = await ask_openai(
-                prompt, chat_id=chat_id, images=image_urls if image_urls else None
+                prompt, chat_id=chat_id, 
+                images=image_urls if image_urls else None,
+                pdfs=pdf_urls if pdf_urls else None
             )
             CHANNEL_CHAT_IDS[channel_id] = new_chat_id
             await message.reply(f"{answer}")
